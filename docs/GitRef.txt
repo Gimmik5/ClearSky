@@ -1,0 +1,38 @@
+REM ── Status & History ──────────────────────────────────
+git status                              REM See staged/unstaged changes
+git log --oneline --decorate --all      REM Full visual history
+git diff                                REM See unstaged changes
+git ls-files                            REM List all tracked files
+
+REM ── Branching ─────────────────────────────────────────
+git branch                              REM List branches
+git checkout -b feature/name            REM Create and switch to branch
+git checkout main                       REM Switch to main
+git branch -d feature/name              REM Delete branch (safe)
+git branch -D feature/name              REM Force delete branch
+
+REM ── Staging & Committing ──────────────────────────────
+git add ClearSkyCodebase\               REM Stage the project folder
+git add .                               REM Stage everything
+git commit -m "message"                 REM Commit staged files
+git commit --amend -m "new msg"         REM Fix last commit message
+
+REM ── Tags ──────────────────────────────────────────────
+git tag                                 REM List all tags
+git tag -a v1.0.0 -m "message"         REM Create annotated tag
+git tag -d v1.0.0                       REM Delete a tag
+git show v1.0.0                         REM See tag details
+
+REM ── Undoing ───────────────────────────────────────────
+git restore file.py                     REM Discard unstaged changes
+git restore --staged file.py            REM Unstage a file
+git reset HEAD~1                        REM Undo last commit (keep files)
+git reset --hard v1.0.0                 REM Reset to a tag (lose changes since)
+
+REM ── Remote (GitHub) ───────────────────────────────────
+git remote add origin <url>             REM Link to GitHub repo
+git push origin main                    REM Push main branch
+git push origin develop                 REM Push develop branch
+git push --tags                         REM Push all tags
+git pull origin main                    REM Pull latest from GitHub
+git remote remove origin                REM Remove broken remote link
