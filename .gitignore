@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+
+# Database (auto-created on run)
+*.db
+*.sqlite
+*.sqlite3
+*.sqbpro
+
+# Captured images (generated data, not source)
+ClearSkyCodebase/python/captured_images/
+!ClearSkyCodebase/python/captured_images/.gitkeep
+
+# Database folder contents (keep the folder via .gitkeep)
+ClearSkyCodebase/python/database/*.db
+ClearSkyCodebase/python/database/*.sqlite
+
+# Backup files
+*.backup
+*.bak
+analysis_data.json.backup
+
+# Logs
+*.log
+server.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arduino build artifacts
+*.hex
+build/
+
+# Screenshots and personal docs at root (not committed)
+*.png
+*.docx
+*.xlsm
