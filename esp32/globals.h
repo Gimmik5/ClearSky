@@ -67,4 +67,16 @@ void blinkCapture();
 void debugPrint(const char* message);
 void debugPrintf(const char* format, ...);
 
+// SD Card functions (defined in sd_card_module.ino)
+bool initSDCard();
+bool saveImageToSD(camera_fb_t* fb, const char* filename);
+String generateImageFilename();
+bool logCaptureToSD(const char* timestamp, size_t imageSize, bool uploadSuccess);
+void cleanupOldImages();
+void printSDStatus();
+void listSDFiles();
+bool sdIsAvailable();
+int sdGetImageCount();
+uint64_t sdGetFreeSpace();
+
 #endif // GLOBALS_H

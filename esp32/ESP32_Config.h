@@ -104,6 +104,29 @@ const char* SERVER_URL = "http://192.168.1.146:5000/upload";
 // ===== BUFFER SETTINGS =====
 #define CAMERA_FB_COUNT 1              // Frame buffer count (1 or 2)
 
+// ===== SD CARD SETTINGS =====
+
+// Master enable - set false to disable all SD functionality
+#define SD_CARD_ENABLE true
+
+// Save a copy of every captured image to SD card
+#define SD_SAVE_IMAGES true
+
+// Log each capture to a CSV file on SD card
+#define SD_LOG_CAPTURES true
+
+// Directory paths on the SD card
+#define SD_IMAGE_DIR "/images"         // Where images are stored
+#define SD_LOG_DIR   "/logs"           // Where CSV log is stored
+
+// Storage limits
+#define SD_MAX_IMAGES 100              // Max images before auto-cleanup runs
+#define SD_MIN_FREE_SPACE_MB 50        // Minimum free space to maintain (MB)
+
+// Auto-delete oldest images when storage limits are reached
+#define SD_AUTO_DELETE_OLD true
+
+
 // ===== PRESETS =====
 // Uncomment ONE preset to quickly configure for common scenarios
 
@@ -152,6 +175,7 @@ const char* SERVER_URL = "http://192.168.1.146:5000/upload";
   #undef DEFAULT_CAPTURE_INTERVAL_MS
   #define DEFAULT_CAPTURE_INTERVAL_MS 60000  // 1 minute (slow upload)
 #endif
+
 
 #endif // ESP32_CONFIG_H
 
