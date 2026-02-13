@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+*.egg-info/
+
+# Database files
+Python/database/*.db
+Python/database/*.sqlite
+Python/database/*.sqlite3
+*.db
+*.sqlite
+
+# Captured images
+Python/captured_images/
+Python/images/
+*.jpg
+*.jpeg
+*.png
+
+# JSON backups
+*.backup
+Python/*.backup
+
+# Logs
+*.log
+Python/server.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+
+# Don't ignore example configs (if you want to keep templates)
+# !ESP32_Config.example.h
+# !python_config.example.py
