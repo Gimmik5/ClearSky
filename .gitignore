@@ -1,67 +1,43 @@
-# Python
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-venv/
-env/
-.env
 
-# Database (auto-created on run)
+# Databases
 *.db
 *.sqlite
 *.sqlite3
 *.sqbpro
 
-# Captured images (generated data, not source)
-ClearSkyCodebase/python/captured_images/
-!ClearSkyCodebase/python/captured_images/.gitkeep
+# Images (captured at runtime)
+captured_images/
+*.jpg
+*.jpeg
+*.png
 
-# Database folder contents (keep the folder via .gitkeep)
-ClearSkyCodebase/python/database/*.db
-ClearSkyCodebase/python/database/*.sqlite
-
-# Backup files
+# Backups
 *.backup
 *.bak
-analysis_data.json.backup
+*.json.backup
 
 # Logs
 *.log
 server.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
 
 # OS files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Arduino build artifacts
-*.hex
-build/
-
-# Screenshots and personal docs at root (not committed)
-*.png
-*.docx
-*.xlsm
-
-#Temp folder contents
-.Temp/*
-
-## Ignore live database and images
-V1/Python/database/*.db
-V1/Python/captured_images/
-V1.1/python/database/*.db
-V1.1/python/captured_images/
-*/__pycache__/
-*.pyc
-
-# Temp/working files
+# Utility/temp files
 FileTee.bat
 FileTree.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Temp staging folders (no longer needed after migration)
+Temp/
