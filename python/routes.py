@@ -35,7 +35,7 @@ def register_routes(app):
         """Receive image from ESP32 and analyze it"""
         try:
             # Get image data
-            image_data = request.data
+            image_data = request.get_data(force=True)
             
             # Validate image size
             if len(image_data) > MAX_IMAGE_SIZE_MB * 1024 * 1024:

@@ -14,6 +14,7 @@ from database_schema import create_database
 
 # Create Flask app
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB
 
 if ENABLE_CORS:
     from flask_cors import CORS
