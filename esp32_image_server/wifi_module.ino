@@ -11,11 +11,11 @@ bool initWiFi() {
   debugPrintf("Connecting to WiFi: %s", WIFI_SSID);
   
   if (!connectToWiFi()) {
-    debugPrint("✗ WiFi connection failed");
+    debugPrint("[ERROR] WiFi connection failed");
     return false;
   }
   
-  debugPrint("✓ WiFi connected");
+  debugPrint("[OK] WiFi connected");
   printWiFiInfo();
   
   return true;
@@ -49,7 +49,7 @@ bool checkWiFiConnection() {
 }
 
 void reconnectWiFi() {
-  debugPrint("✗ WiFi disconnected, reconnecting...");
+  debugPrint("[WARN] WiFi disconnected, reconnecting...");
   initWiFi();
 }
 
@@ -59,7 +59,14 @@ void printWiFiInfo() {
   #if ENABLE_SERIAL_OUTPUT
     Serial.print("  ESP32 IP: ");
     Serial.println(WiFi.localIP());
-    Serial.printf("  Sending to: %s\n", SERVER_URL);
+    
+    #if USE_PULL_MODE
+      Serial.println("  Mode: PULL (Server)");
+    #else
+      Serial.printf("  Sending to: %s\n", SERVER_URL);
+      Serial.println("  Mode: PUSH (Sender)");
+    #endif
+    
     Serial.print("  Signal: ");
     Serial.print(WiFi.RSSI());
     Serial.println(" dBm");

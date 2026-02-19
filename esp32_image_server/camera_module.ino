@@ -16,16 +16,16 @@ bool initCamera() {
   
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    debugPrintf("✗ Camera init failed: 0x%x", err);
+    debugPrintf("[ERROR] Camera init failed: 0x%x", err);
     return false;
   }
   
   if (!configureCameraSensor()) {
-    debugPrint("✗ Camera sensor config failed");
+    debugPrint("[ERROR] Camera sensor config failed");
     return false;
   }
   
-  debugPrint("✓ Camera initialized");
+  debugPrint("[OK] Camera initialized");
   printCameraInfo();
   
   return true;
@@ -104,7 +104,7 @@ camera_fb_t* captureImageWithRetry() {
   while (retries < MAX_CAPTURE_RETRIES) {
     fb = captureImage();
     if (fb) {
-      debugPrintf("✓ Captured %d bytes", fb->len);
+      debugPrintf("[OK] Captured %d bytes", fb->len);
       return fb;
     }
     
@@ -113,6 +113,6 @@ camera_fb_t* captureImageWithRetry() {
     delay(RETRY_DELAY_MS);
   }
   
-  debugPrint("✗ Capture failed after retries!");
+  debugPrint("[ERROR] Capture failed after retries!");
   return NULL;
 }

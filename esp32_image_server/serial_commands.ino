@@ -38,17 +38,21 @@ void checkSerialCommands() {
 
 void handlePauseCommand() {
   systemPaused = true;
-  debugPrint("\n⏸️  PAUSED - Type 'resume' to continue\n");
+  debugPrint("\n[PAUSED] - Type 'resume' to continue\n");
 }
 
 void handleResumeCommand() {
   systemPaused = false;
-  debugPrint("\n▶️  RESUMED\n");
+  debugPrint("\n[RESUMED]\n");
 }
 
 void handleCaptureCommand() {
-  debugPrint("\n📸 Manual capture\n");
-  captureAndSend();
+  debugPrint("\n[MANUAL CAPTURE]\n");
+  #if USE_PULL_MODE
+    debugPrint("In Pull Mode - use /capture endpoint from browser/Python");
+  #else
+    captureAndSend();
+  #endif
 }
 
 void handleIntervalCommand(String cmd) {
@@ -56,10 +60,10 @@ void handleIntervalCommand(String cmd) {
   
   if (newInterval >= MIN_CAPTURE_INTERVAL_MS) {
     captureInterval = newInterval;
-    debugPrintf("\n✓ Interval set to %d ms (%d seconds)\n", 
+    debugPrintf("\n[OK] Interval set to %d ms (%d seconds)\n", 
                 captureInterval, captureInterval / 1000);
   } else {
-    debugPrintf("\n✗ Invalid interval (min %dms)\n", MIN_CAPTURE_INTERVAL_MS);
+    debugPrintf("\n[ERROR] Invalid interval (min %dms)\n", MIN_CAPTURE_INTERVAL_MS);
   }
 }
 
@@ -71,7 +75,7 @@ void handleStatusCommand() {
 
 void printCommandHelp() {
   #if ENABLE_SERIAL_OUTPUT
-    Serial.println("\n❓ Unknown command");
+    Serial.println("\n[?] Unknown command");
     Serial.println("Available: pause, resume, capture, interval N, status\n");
   #endif
 }
@@ -81,15 +85,24 @@ void printStatus() {
     Serial.println("\n========================================");
     Serial.println("STATUS");
     Serial.println("========================================");
-    Serial.printf("State: %s\n", systemPaused ? "⏸️  PAUSED" : "▶️  RUNNING");
+    Serial.printf("State: %s\n", systemPaused ? "[PAUSED]" : "[RUNNING]");
+    
+    #if USE_PULL_MODE
+      Serial.println("Mode: PULL (Server)");
+      Serial.printf("Captures served: %lu\n", captureCount);
+      Serial.printf("Last capture: %lu ms\n", lastCaptureMs);
+    #else
+      Serial.println("Mode: PUSH (Sender)");
+      Serial.printf("Server: %s\n", SERVER_URL);
+      Serial.printf("Upload failures: %d\n", uploadFailCount);
+    #endif
+    
     Serial.printf("Uptime: %lu seconds\n", millis() / 1000);
     Serial.printf("Interval: %d ms (%d seconds)\n", captureInterval, captureInterval / 1000);
     Serial.printf("Free heap: %d bytes\n", ESP.getFreeHeap());
     Serial.printf("WiFi: %s (RSSI: %d dBm)\n", 
                   WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected",
                   WiFi.RSSI());
-    Serial.printf("Server: %s\n", SERVER_URL);
-    Serial.printf("Upload failures: %d\n", uploadFailCount);
     Serial.println("========================================\n");
   #endif
 }
