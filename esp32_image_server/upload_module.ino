@@ -10,7 +10,7 @@
 void captureAndSend() {
   #if ENABLE_SERIAL_OUTPUT && SHOW_DETAILED_OUTPUT
     Serial.println("----------------------------------------");
-    Serial.println("📷 Capturing image...");
+    Serial.println("[CAPTURE] Capturing image...");
   #endif
   
   blinkCapture();
@@ -32,7 +32,7 @@ void captureAndSend() {
       blinkError();
     }
   } else {
-    debugPrint("✗ No WiFi connection");
+    debugPrint("[ERROR] No WiFi connection");
   }
   
   esp_camera_fb_return(fb);
@@ -81,7 +81,7 @@ bool sendHTTPRequest(HTTPClient* http, camera_fb_t* fb) {
       
       if (httpCode == 200) {
         uploadFailCount = 0;
-        debugPrint("✓ Retry successful");
+        debugPrint("[SUCCESS] Retry successful");
         return true;
       }
     }
@@ -92,7 +92,7 @@ bool sendHTTPRequest(HTTPClient* http, camera_fb_t* fb) {
 // ===== UPLOAD RESPONSE HANDLERS =====
 
 void handleUploadSuccess(String response) {
-  debugPrint("✓ Sent to server");
+  debugPrint("[SUCCESS] Sent to server");
   
   #if ENABLE_SERIAL_OUTPUT && SHOW_DETAILED_OUTPUT
     if (response.length() > 0) {
@@ -103,6 +103,6 @@ void handleUploadSuccess(String response) {
 }
 
 void handleUploadFailure(int httpCode) {
-  debugPrintf("✗ Upload failed: HTTP %d", httpCode);
+  debugPrintf("[ERROR] Upload failed: HTTP %d", httpCode);
   debugPrintf("  Fail count: %d", uploadFailCount);
 }

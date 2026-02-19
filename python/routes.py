@@ -34,8 +34,31 @@ def register_routes(app):
     def upload_image():
         """Receive image from ESP32 and analyze it"""
         try:
-            # Get image data
-            image_data = request.get_data(force=True)
+            # Debug logging
+            print(f"\n{'='*60}")
+            print(f"Upload request from {request.remote_addr}")
+            print(f"Content-Type: {request.content_type}")
+            print(f"Content-Length: {request.content_length}")
+            print(f"{'='*60}\n")
+            
+            # Get image data - read exact Content-Length to prevent hanging
+            content_length = request.content_length
+            if content_length is None or content_length == 0:
+                error_msg = "Missing or zero Content-Length header"
+                print(f"ERROR: {error_msg}")
+                return error_msg, 400
+            
+            print(f"Reading {content_length} bytes from stream...")
+            image_data = request.stream.read(content_length)
+            print(f"Successfully read {len(image_data)} bytes")
+            
+            # Check if data exists
+            if not image_data or len(image_data) == 0:
+                error_msg = "No image data received in request body"
+                print(f"ERROR: {error_msg}")
+                return error_msg, 400
+            
+            print(f"Received {len(image_data)} bytes")
             
             # Validate image size
             if len(image_data) > MAX_IMAGE_SIZE_MB * 1024 * 1024:
@@ -46,6 +69,7 @@ def register_routes(app):
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
             if image is None:
+                print(f"ERROR: cv2.imdecode failed - invalid JPEG data")
                 return "Invalid image", 400
             
             # Generate timestamp
@@ -69,7 +93,7 @@ def register_routes(app):
             
             # Return analysis results to ESP32
             response = f"""
-✓ Image analyzed successfully
+âœ“ Image analyzed successfully
 {get_analysis_summary(analysis_results)}
 """
             

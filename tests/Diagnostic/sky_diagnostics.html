@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sky Predictor — Server Diagnostics</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #06080c;
+    --bg2:       #090e14;
+    --bg3:       #030507;
+    --border:    #0f2030;
+    --green:     #00e87a;
+    --amber:     #ffb347;
+    --red:       #ff4d6d;
+    --blue:      #60d0ff;
+    --muted:     #2a4a5a;
+    --text:      #8ab0c0;
+    --dim:       #1a3040;
+    --font:      'Courier New', Courier, monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar h1 {
+    color: var(--green);
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: normal;
+  }
+  .topbar .sub {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-top: 3px;
+  }
+  .last-check { text-align: right; font-size: 10px; color: var(--muted); }
+  .last-check span { color: var(--text); }
+
+  /* ── Body ── */
+  .body { padding: 24px 28px; max-width: 1100px; margin: 0 auto; }
+
+  /* ── URL Row ── */
+  .url-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .url-row input {
+    flex: 1 1 240px;
+    background: var(--bg3);
+    border: 1px solid #0f2535;
+    color: var(--blue);
+    padding: 9px 14px;
+    font-family: var(--font);
+    font-size: 13px;
+    border-radius: 3px;
+    outline: none;
+  }
+  .url-row input:focus { border-color: #1a4060; }
+
+  /* ── Buttons ── */
+  button {
+    font-family: var(--font);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 9px 18px;
+    transition: all 0.15s;
+  }
+  .btn-green { border: 1px solid var(--green); color: var(--green); background: transparent; }
+  .btn-green:hover, .btn-green.active { background: var(--green); color: #000; }
+  .btn-green:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-blue  { border: 1px solid var(--blue);  color: var(--blue);  background: transparent; }
+  .btn-blue:hover, .btn-blue.active  { background: var(--blue);  color: #000; }
+  .btn-amber { border: 1px solid var(--amber); color: var(--amber); background: transparent; }
+  .btn-amber:hover { background: var(--amber); color: #000; }
+  .btn-red   { border: 1px solid var(--red);   color: var(--red);   background: transparent; }
+  .btn-red:hover { background: var(--red); color: #000; }
+
+  /* ── Overall Banner ── */
+  .banner {
+    padding: 12px 18px;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .banner.nominal { background: #00e87a11; border: 1px solid #00e87a44; border-left: 3px solid var(--green); color: var(--green); }
+  .banner.degraded { background: #ffb34711; border: 1px solid #ffb34744; border-left: 3px solid var(--amber); color: var(--amber); }
+  .banner.offline  { background: #ff4d6d11; border: 1px solid #ff4d6d44; border-left: 3px solid var(--red);   color: var(--red);   }
+  .banner .ok-count { font-size: 10px; color: var(--muted); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 10px 24px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  /* ── Endpoint Grid ── */
+  .ep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+  .ep-card {
+    background: var(--bg2);
+    border-radius: 3px;
+    padding: 16px;
+    border: 1px solid var(--dim);
+    border-left: 3px solid var(--dim);
+  }
+  .ep-card.ok       { border-color: #00e87a22; border-left-color: var(--green); }
+  .ep-card.warn     { border-color: #ffb34722; border-left-color: var(--amber); }
+  .ep-card.err      { border-color: #ff4d6d22; border-left-color: var(--red);   }
+
+  .ep-label { font-size: 11px; color: #4a7a8a; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+  .ep-path  { font-size: 10px; color: var(--muted); margin-bottom: 10px; }
+  .ep-row   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+  .badge.ok      { color: var(--green); border-color: #00e87a55; background: #00e87a18; }
+  .badge.warn    { color: var(--amber); border-color: #ffb34755; background: #ffb34718; }
+  .badge.err     { color: var(--red);   border-color: #ff4d6d55; background: #ff4d6d18; }
+  .badge.neutral { color: var(--muted); border-color: #2a4a5a55; background: transparent; }
+
+  .latency-bar-wrap { flex: 1; min-width: 60px; height: 4px; background: #0a1a28; border-radius: 2px; overflow: hidden; }
+  .latency-bar { height: 100%; border-radius: 2px; transition: width 0.4s; }
+
+  .ep-error { color: var(--red); font-size: 10px; margin-top: 8px; }
+  .ep-img   { color: #4a8aaa; font-size: 10px; margin-top: 8px; }
+
+  pre.ep-body {
+    background: var(--bg3);
+    border: 1px solid #0a1a28;
+    padding: 10px;
+    font-size: 10px;
+    color: #4a7a8a;
+    max-height: 110px;
+    overflow-y: auto;
+    margin-top: 10px;
+    border-radius: 2px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+    font-family: var(--font);
+  }
+
+  /* ── Upload Tab ── */
+  .upload-desc { color: var(--muted); font-size: 11px; margin-bottom: 16px; line-height: 1.7; }
+  .upload-desc span { color: var(--blue); }
+  .upload-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .file-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 18px;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    font-family: var(--font);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .file-label:hover { background: var(--amber); color: #000; }
+  .auto-note { font-size: 10px; color: var(--muted); margin-bottom: 20px; letter-spacing: 1px; }
+
+  .upload-result {
+    background: var(--bg2);
+    border-radius: 3px;
+    padding: 20px;
+  }
+  .upload-result.ok  { border: 1px solid #00e87a33; border-left: 3px solid var(--green); }
+  .upload-result.err { border: 1px solid #ff4d6d33; border-left: 3px solid var(--red); }
+
+  .metrics-row { display: flex; gap: 28px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .metric-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 2px; }
+  .metric-value { font-size: 28px; line-height: 1; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 6px 16px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    border-radius: 2px;
+  }
+  .status-pill.ok  { color: var(--green); background: #00e87a18; border: 1px solid #00e87a55; }
+  .status-pill.err { color: var(--red);   background: #ff4d6d18; border: 1px solid #ff4d6d55; }
+
+  .body-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 6px; }
+  pre.upload-body {
+    background: var(--bg3);
+    border: 1px solid #0a1a28;
+    padding: 12px;
+    font-size: 11px;
+    max-height: 220px;
+    overflow-y: auto;
+    border-radius: 2px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+    font-family: var(--font);
+  }
+  pre.upload-body.ok  { color: #4a9a6a; }
+  pre.upload-body.err { color: #9a4a4a; }
+
+  /* ── Placeholder / Spinner ── */
+  .placeholder {
+    text-align: center;
+    padding: 50px 0;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+  .spinner { color: var(--green); }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 36px;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-align: center;
+    padding-bottom: 24px;
+  }
+
+  /* ── CORS helper ── */
+  .cors-tip {
+    background: #ffb34709;
+    border: 1px solid #ffb34730;
+    border-left: 3px solid var(--amber);
+    padding: 12px 16px;
+    border-radius: 3px;
+    margin-bottom: 18px;
+    font-size: 10px;
+    color: var(--amber);
+    line-height: 1.7;
+    display: none;
+  }
+  .cors-tip.show { display: block; }
+  .cors-tip code { background: #0a1a28; padding: 1px 5px; border-radius: 2px; font-family: var(--font); }
+</style>
+</head>
+<body>
+
+<!-- ── Top Bar ─────────────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div>
+    <h1>◈ Sky Predictor — Server Diagnostics</h1>
+    <div class="sub">CONNECTION HEALTH &nbsp;·&nbsp; UPLOAD ENDPOINT TESTER</div>
+  </div>
+  <div class="last-check" id="lastCheck"></div>
+</div>
+
+<!-- ── Body ───────────────────────────────────────────────────────────── -->
+<div class="body">
+
+  <!-- URL row -->
+  <div class="url-row">
+    <input id="serverUrl" type="text" value="http://localhost:5000" placeholder="http://localhost:5000" />
+    <button class="btn-green" id="btnCheck" onclick="runCheck()">Run Health Check</button>
+    <button class="btn-blue"  id="btnAuto"  onclick="toggleAuto()">◎ Live OFF</button>
+  </div>
+
+  <!-- CORS tip (shown on connection error) -->
+  <div class="cors-tip" id="corsTip">
+    ⚠ &nbsp;Connection refused or CORS error detected. Make sure your Python server is running, then open
+    <code>python_config.py</code> and set <code>ENABLE_CORS = True</code>, then restart with <code>python main.py</code>.
+  </div>
+
+  <!-- Banner -->
+  <div id="banner" style="display:none"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tab-health" onclick="switchTab('health')">Endpoint Health</button>
+    <button class="tab"        id="tab-upload" onclick="switchTab('upload')">Upload Tester</button>
+  </div>
+
+  <!-- ── Health Tab ─────────────────────────────────────────────────── -->
+  <div id="pane-health">
+    <div class="placeholder" id="healthPlaceholder">PRESS "RUN HEALTH CHECK" TO BEGIN DIAGNOSTICS</div>
+    <div class="ep-grid" id="epGrid"></div>
+  </div>
+
+  <!-- ── Upload Tab ─────────────────────────────────────────────────── -->
+  <div id="pane-upload" style="display:none">
+    <p class="upload-desc">
+      Simulates an ESP32-CAM POST to <span>/upload</span>.
+      Sends a real JPEG and displays the full server response, status code, and latency.
+      If no image is chosen, a synthetic 320×240 sky JPEG is generated automatically.
+    </p>
+
+    <div class="upload-row">
+      <label class="file-label" id="fileLabel">
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="onFileChange()" />
+        Choose Image
+      </label>
+      <button class="btn-red" id="btnClear" onclick="clearFile()" style="display:none">✗ Clear</button>
+      <button class="btn-green" id="btnUpload" onclick="runUpload()">Send Synthetic Image</button>
+    </div>
+    <div class="auto-note" id="autoNote">AUTO MODE — will synthesise a 320×240 sky-blue gradient JPEG</div>
+
+    <div id="uploadSpinner" style="display:none" class="placeholder spinner">⟳ POSTING TO /upload ...</div>
+    <div id="uploadResult" style="display:none"></div>
+  </div>
+
+  <div class="footer" id="footer">SKY PREDICTOR DIAGNOSTICS · LOCAL FILE · TARGET: <span id="footerUrl">http://localhost:5000</span></div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const ENDPOINTS = [
+  { path: '/api/test',           method: 'GET', label: 'Server Health', critical: true  },
+  { path: '/api/latest',         method: 'GET', label: 'Latest Data',   critical: false },
+  { path: '/api/statistics',     method: 'GET', label: 'Statistics',    critical: false },
+  { path: '/api/config',         method: 'GET', label: 'Configuration', critical: false },
+  { path: '/api/history?limit=1',method: 'GET', label: 'History',       critical: false },
+  { path: '/image/latest',       method: 'GET', label: 'Latest Image',  critical: false },
+];
+
+let results     = {};
+let autoTimer   = null;
+let customFile  = null;
+let checking    = false;
+let uploading   = false;
+
+// ── Tab switching ───────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['health','upload'].forEach(t => {
+    document.getElementById('pane-'  + t).style.display = t === name ? '' : 'none';
+    document.getElementById('tab-'   + t).classList.toggle('active', t === name);
+  });
+}
+
+// ── Colour helpers ──────────────────────────────────────────────────────────
+function statusColor(r) {
+  if (!r)     return '#1a3040';
+  if (r.ok)   return '#00e87a';
+  if (r.status) return '#ffb347';
+  return '#ff4d6d';
+}
+function latencyColor(ms) {
+  if (ms < 100) return '#00e87a';
+  if (ms < 400) return '#ffb347';
+  return '#ff4d6d';
+}
+function latencyPct(ms) { return Math.min(ms / 5, 100); }
+
+// ── Single endpoint check ───────────────────────────────────────────────────
+async function checkEndpoint(ep) {
+  const url = document.getElementById('serverUrl').value.replace(/\/$/, '');
+  const t0  = performance.now();
+  try {
+    const resp = await fetch(url + ep.path, {
+      method: ep.method,
+      signal: AbortSignal.timeout(6000),
+    });
+    const ms = Math.round(performance.now() - t0);
+    const ct = resp.headers.get('content-type') || '';
+    let body = null;
+    if (ct.includes('json')) {
+      try { body = await resp.json(); } catch {}
+    } else if (ct.includes('image')) {
+      body = '__image__';
+    } else {
+      try { body = (await resp.text()).slice(0, 500); } catch {}
+    }
+    return { status: resp.status, ms, ok: resp.ok, body };
+  } catch (err) {
+    return { status: null, ms: Math.round(performance.now() - t0), ok: false, error: err.message };
+  }
+}
+
+// ── Render a single card ────────────────────────────────────────────────────
+function renderCard(ep, r) {
+  const cardClass = !r ? '' : r.ok ? 'ok' : r.status ? 'warn' : 'err';
+  const badgeClass = !r ? 'neutral' : r.ok ? 'ok' : r.status ? 'warn' : 'err';
+  const badgeText  = !r ? 'PENDING' : r.ok ? 'OK' : r.status ? String(r.status) : 'CONN ERR';
+
+  let bodyHtml = '';
+  if (r) {
+    if (r.error) bodyHtml = `<div class="ep-error">✗ ${escHtml(r.error)}</div>`;
+    else if (r.body === '__image__') bodyHtml = `<div class="ep-img">◈ Image binary received</div>`;
+    else if (r.body && typeof r.body === 'object') bodyHtml = `<pre class="ep-body">${escHtml(JSON.stringify(r.body, null, 2))}</pre>`;
+    else if (r.body && typeof r.body === 'string') bodyHtml = `<pre class="ep-body">${escHtml(r.body)}</pre>`;
+  }
+
+  const latMs  = r ? r.ms : 0;
+  const latCol = r ? latencyColor(latMs) : '#1a3040';
+  const latPct = r ? latencyPct(latMs) : 0;
+
+  return `
+    <div class="ep-card ${cardClass}">
+      <div class="ep-label">${ep.critical ? '<span style="color:#ffb347">★ </span>' : ''}${ep.label}</div>
+      <div class="ep-path">${ep.method} ${ep.path}</div>
+      <div class="ep-row">
+        <span class="badge ${badgeClass}">${badgeText}</span>
+        ${r ? `<span style="color:${latCol};font-size:11px">${latMs}ms</span>
+               <div class="latency-bar-wrap">
+                 <div class="latency-bar" style="width:${latPct}%;background:${latCol}"></div>
+               </div>` : ''}
+      </div>
+      ${bodyHtml}
+    </div>`;
+}
+
+// ── Full health check ────────────────────────────────────────────────────────
+async function runCheck() {
+  if (checking) return;
+  checking = true;
+  document.getElementById('btnCheck').disabled = true;
+  document.getElementById('btnCheck').textContent = '⟳ Scanning...';
+  document.getElementById('healthPlaceholder').innerHTML =
+    `<span class="spinner">⟳ SCANNING ${ENDPOINTS.length} ENDPOINTS...</span>`;
+  document.getElementById('healthPlaceholder').style.display = '';
+  document.getElementById('epGrid').innerHTML = '';
+  document.getElementById('banner').style.display = 'none';
+  document.getElementById('corsTip').classList.remove('show');
+
+  const fresh = {};
+  await Promise.all(ENDPOINTS.map(async ep => {
+    fresh[ep.path] = await checkEndpoint(ep);
+  }));
+  results = fresh;
+
+  // Render cards
+  document.getElementById('healthPlaceholder').style.display = 'none';
+  document.getElementById('epGrid').innerHTML =
+    ENDPOINTS.map(ep => renderCard(ep, results[ep.path])).join('');
+
+  // Banner
+  const okCount = Object.values(results).filter(r => r.ok).length;
+  const total   = ENDPOINTS.length;
+  const anyConnErr = Object.values(results).some(r => !r.ok && !r.status);
+  let state, stateLabel;
+  if (okCount === total)  { state = 'nominal';  stateLabel = '✓ NOMINAL'; }
+  else if (okCount > 0)   { state = 'degraded'; stateLabel = '⚠ DEGRADED'; }
+  else                    { state = 'offline';  stateLabel = '✗ OFFLINE'; }
+
+  const banner = document.getElementById('banner');
+  banner.className = 'banner ' + state;
+  banner.innerHTML = `<span>${stateLabel}</span><span class="ok-count">${okCount}/${total} ENDPOINTS RESPONDING</span>`;
+  banner.style.display = '';
+
+  if (anyConnErr) document.getElementById('corsTip').classList.add('show');
+
+  // Last check
+  const now = new Date().toLocaleTimeString();
+  document.getElementById('lastCheck').innerHTML = `LAST SCAN<br><span>${now}</span>`;
+  document.getElementById('footerUrl').textContent = document.getElementById('serverUrl').value;
+
+  document.getElementById('btnCheck').disabled = false;
+  document.getElementById('btnCheck').textContent = 'Run Health Check';
+  checking = false;
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────────────────────
+function toggleAuto() {
+  const btn = document.getElementById('btnAuto');
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    btn.textContent = '◎ Live OFF';
+    btn.classList.remove('active');
+  } else {
+    runCheck();
+    autoTimer = setInterval(runCheck, 5000);
+    btn.textContent = '◉ Live ON';
+    btn.classList.add('active');
+  }
+}
+
+// ── File picker ───────────────────────────────────────────────────────────────
+function onFileChange() {
+  const f = document.getElementById('fileInput').files[0];
+  customFile = f || null;
+  document.getElementById('fileLabel').textContent = f ? '◈ ' + f.name : 'Choose Image';
+  document.getElementById('btnClear').style.display = f ? '' : 'none';
+  document.getElementById('btnUpload').textContent  = f ? 'Upload Image' : 'Send Synthetic Image';
+  document.getElementById('autoNote').style.display = f ? 'none' : '';
+}
+function clearFile() {
+  customFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileLabel').textContent = 'Choose Image';
+  document.getElementById('btnClear').style.display = 'none';
+  document.getElementById('btnUpload').textContent  = 'Send Synthetic Image';
+  document.getElementById('autoNote').style.display = '';
+}
+
+// ── Synthetic image via canvas ────────────────────────────────────────────────
+function generateTestImage() {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320; canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+
+    const g = ctx.createLinearGradient(0, 0, 0, 240);
+    g.addColorStop(0,    '#4a90d9');
+    g.addColorStop(0.65, '#87CEEB');
+    g.addColorStop(1,    '#c8e8f8');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 320, 240);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    [[70,90,35],[110,75,50],[150,90,35],[200,110,28],[235,98,42],[265,110,28]]
+      .forEach(([x,y,r]) => { ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); });
+
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.font = '11px monospace';
+    ctx.fillText('SYNTHETIC TEST IMAGE — ' + new Date().toLocaleTimeString(), 8, 228);
+
+    canvas.toBlob(resolve, 'image/jpeg', 0.85);
+  });
+}
+
+// ── Upload test ───────────────────────────────────────────────────────────────
+async function runUpload() {
+  if (uploading) return;
+  uploading = true;
+  document.getElementById('btnUpload').disabled = true;
+  document.getElementById('uploadResult').style.display = 'none';
+  document.getElementById('uploadSpinner').style.display = '';
+
+  const url  = document.getElementById('serverUrl').value.replace(/\/$/, '');
+  const blob = customFile ? customFile : await generateTestImage();
+  const t0   = performance.now();
+
+  try {
+    const resp = await fetch(url + '/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: blob,
+      signal: AbortSignal.timeout(15000),
+    });
+    const ms   = Math.round(performance.now() - t0);
+    const body = await resp.text();
+    renderUploadResult({ status: resp.status, ok: resp.ok, ms, body, size: blob.size });
+  } catch (err) {
+    const ms = Math.round(performance.now() - t0);
+    renderUploadResult({ status: null, ok: false, ms, error: err.message });
+  }
+
+  document.getElementById('uploadSpinner').style.display = 'none';
+  document.getElementById('btnUpload').disabled = false;
+  uploading = false;
+}
+
+function renderUploadResult(r) {
+  const cls    = r.ok ? 'ok' : 'err';
+  const accent = r.ok ? '#00e87a' : '#ff4d6d';
+  const sizeKB = r.size ? (r.size / 1024).toFixed(1) + 'KB' : '—';
+  const bodyText = r.error || r.body || '(empty response)';
+  const pillText = r.ok ? '✓ UPLOAD ACCEPTED' : '✗ UPLOAD REJECTED';
+
+  document.getElementById('uploadResult').className = 'upload-result ' + cls;
+  document.getElementById('uploadResult').innerHTML = `
+    <div class="metrics-row">
+      <div>
+        <div class="metric-label">HTTP STATUS</div>
+        <div class="metric-value" style="color:${accent}">${r.status ?? '—'}</div>
+      </div>
+      <div>
+        <div class="metric-label">LATENCY</div>
+        <div class="metric-value" style="color:${latencyColor(r.ms)}">${r.ms}ms</div>
+      </div>
+      <div>
+        <div class="metric-label">PAYLOAD SIZE</div>
+        <div class="metric-value" style="color:#8ab0c0">${sizeKB}</div>
+      </div>
+      <div style="flex:1">
+        <span class="status-pill ${cls}">${pillText}</span>
+      </div>
+    </div>
+    <div class="body-label">SERVER RESPONSE BODY</div>
+    <pre class="upload-body ${cls}">${escHtml(bodyText)}</pre>
+  `;
+  document.getElementById('uploadResult').style.display = '';
+}
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

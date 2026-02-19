@@ -58,7 +58,7 @@ LOG_FILE = "server.log"               # Log file (None = console only)
 LOG_LEVEL = "INFO"                    # DEBUG, INFO, WARNING, ERROR
 
 # ===== ADVANCED SETTINGS =====
-ENABLE_CORS = False                   # Enable CORS for API access
+ENABLE_CORS = True                   # Enable CORS for API access
 MAX_IMAGE_SIZE_MB = 10                # Maximum image size to accept
 ENABLE_IMAGE_COMPRESSION = False      # Re-compress received images
 COMPRESSION_QUALITY = 85              # JPEG quality if compression enabled

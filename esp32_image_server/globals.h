@@ -8,14 +8,23 @@
 
 #include "esp_camera.h"
 #include "WiFi.h"
-#include "HTTPClient.h"
+#include "WebServer.h"
+#include "HTTPClient.h"  // Added for upload functionality
 #include "ESP32_Config.h"
 
 // ===== GLOBAL VARIABLES =====
-extern bool systemPaused;
+extern bool          systemPaused;
 extern unsigned long lastCaptureTime;
-extern int captureInterval;
-extern int uploadFailCount;
+extern int           captureInterval;
+extern int           uploadFailCount;
+
+// Server state (defined in server_module.ino)
+extern unsigned long captureCount;
+extern unsigned long lastCaptureMs;
+
+// Web server instance (defined in server_module.ino)
+extern WebServer server;
+
 
 // ===== FUNCTION DECLARATIONS =====
 
@@ -40,7 +49,16 @@ bool checkWiFiConnection();
 void reconnectWiFi();
 void printWiFiInfo();
 
-// Upload functions (defined in upload_module.ino)
+// Server functions (defined in server_module.ino)
+void initServer();
+void handleServerClients();
+void printServerInfo();
+void handleRoot();
+void handleCapture();
+void handleStatus();
+void handleNotFound();
+
+// Upload functions (defined in upload_module.ino) - for Push Mode
 void captureAndSend();
 bool uploadImage(camera_fb_t* fb);
 bool sendHTTPRequest(HTTPClient* http, camera_fb_t* fb);
