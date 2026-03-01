@@ -130,5 +130,24 @@ const char* WIFI_PASSWORD = "your_actual_wifi_password";
   #undef CAMERA_JPEG_QUALITY
   #define CAMERA_JPEG_QUALITY 5
 #endif
+// ===== SD CARD SETTINGS =====
+
+// Enable/disable SD card offline storage
+#define ENABLE_SD_CARD true
+
+// Directory on SD card where offline images are queued
+#define SD_QUEUE_DIR "/offline"
+
+// Storage management thresholds (percentage of total capacity)
+#define SD_WARN_PERCENT   80   // Trigger cleanup at this usage level
+#define SD_TARGET_PERCENT 50   // Clean until usage drops to this level
+
+// Maximum single image size accepted for SD write (bytes)
+// Default matches Python MAX_IMAGE_SIZE_MB (5 MB)
+#define SD_MAX_IMAGE_BYTES (5 * 1024 * 1024)
+
+// Delay between queue endpoint requests during sync (ms)
+// Prevents server overload when Python fetches many queued images
+#define SD_SYNC_DELAY_MS 500
 
 #endif // ESP32_CONFIG_H

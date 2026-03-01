@@ -169,6 +169,27 @@ HTML_TEMPLATE = '''
         .stats-summary .stat-row:last-child {
             border-bottom: none;
         }
+        .nav-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+            padding: 8px 22px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.95em;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.35);
+        }
         .error {
             background: #ffebee;
             color: #c62828;
@@ -183,6 +204,13 @@ HTML_TEMPLATE = '''
         <div class="header">
             <h1>🌤️ Clear Sky Predictor</h1>
             <p>Real-time sky analysis from ESP32-CAM</p>
+        </div>
+
+        <div class="nav-bar">
+            <a href="/" class="nav-btn">🏠 Live View</a>
+            <a href="/gallery" class="nav-btn">🖼 Gallery</a>
+            <a href="/stats" class="nav-btn">📊 Statistics</a>
+            <a href="/export/csv" class="nav-btn">⬇ Export CSV</a>
         </div>
         
         <div class="card">
