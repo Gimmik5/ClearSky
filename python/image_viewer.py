@@ -1,575 +1,218 @@
 """
-Image Viewer Module (V1.1)
+Image Viewer Module - NEW DESIGN
+Gallery shows date folders → Click date → See images for that day
 
-Provides two browser views:
-  /gallery          – Responsive grid of all captured images with
-                      thumbnails, timestamps, and sky scores.
-  /viewer/<timestamp> – Full-size individual image viewer with complete
-                        analysis breakdown and prev/next navigation.
-
-Both pages match the existing purple-gradient visual style used by the
-main dashboard (web_templates.py).
+DESIGN:
+- /gallery → Show list of dates with summary stats
+- /gallery/<date> → Show all images for that specific date
+- /viewer/<timestamp> → Show individual image
 """
 
-# ---------------------------------------------------------------------------
-# GALLERY PAGE TEMPLATE
-# ---------------------------------------------------------------------------
-
-GALLERY_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Sky Predictor - Gallery</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 30px; }
-        .header h1 {
-            font-size: 2.2em; margin-bottom: 8px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        .header p { font-size: 1em; opacity: 0.85; }
-        .nav-bar {
-            display: flex; gap: 12px; justify-content: center;
-            flex-wrap: wrap; margin-bottom: 24px;
-        }
-        .nav-btn {
-            background: rgba(255,255,255,0.2);
-            color: white; border: 2px solid rgba(255,255,255,0.4);
-            padding: 8px 20px; border-radius: 25px; cursor: pointer;
-            font-size: 0.95em; text-decoration: none;
-            transition: background 0.2s;
-        }
-        .nav-btn:hover { background: rgba(255,255,255,0.35); }
-        .filter-bar {
-            background: rgba(255,255,255,0.15);
-            border-radius: 12px; padding: 14px 20px;
-            margin-bottom: 24px; display: flex;
-            align-items: center; gap: 16px; flex-wrap: wrap;
-        }
-        .filter-bar label { color: white; font-size: 0.9em; }
-        .filter-bar select, .filter-bar input {
-            padding: 6px 12px; border-radius: 8px; border: none;
-            font-size: 0.9em; background: white;
-        }
-        .stats-strip {
-            display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap;
-        }
-        .stat-pill {
-            background: rgba(255,255,255,0.2);
-            color: white; border-radius: 20px;
-            padding: 6px 16px; font-size: 0.9em;
-        }
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px;
-        }
-        .gallery-card {
-            background: white; border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-            transition: transform 0.18s, box-shadow 0.18s;
-            cursor: pointer; text-decoration: none; color: inherit;
-            display: block;
-        }
-        .gallery-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-        }
-        .gallery-card img {
-            width: 100%; height: 150px;
-            object-fit: cover; display: block;
-        }
-        .gallery-card .card-body { padding: 12px; }
-        .gallery-card .ts {
-            font-size: 0.78em; color: #666; margin-bottom: 6px;
-        }
-        .gallery-card .condition-label {
-            font-size: 1em; font-weight: 600; margin-bottom: 6px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .mini-score-bar {
-            width: 100%; height: 8px; background: #e0e0e0;
-            border-radius: 4px; overflow: hidden; margin-bottom: 4px;
-        }
-        .mini-score-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-        .score-text { font-size: 0.8em; color: #555; }
-        .offline-badge {
-            display: inline-block; font-size: 0.7em;
-            background: #ff9800; color: white;
-            border-radius: 4px; padding: 1px 5px; margin-left: 4px;
-        }
-        .empty-state {
-            grid-column: 1 / -1; text-align: center;
-            color: white; padding: 60px 20px; font-size: 1.1em; opacity: 0.8;
-        }
-        .pagination {
-            display: flex; justify-content: center; gap: 8px;
-            margin-top: 30px; flex-wrap: wrap;
-        }
-        .page-btn {
-            background: rgba(255,255,255,0.2); color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-            padding: 7px 14px; border-radius: 8px;
-            cursor: pointer; font-size: 0.9em; text-decoration: none;
-        }
-        .page-btn.active { background: white; color: #764ba2; font-weight: bold; }
-        .page-btn:hover:not(.active) { background: rgba(255,255,255,0.35); }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>📷 Image Gallery</h1>
-        <p>All captured sky images – click any to view full analysis</p>
-    </div>
-
-    <div class="nav-bar">
-        <a href="/" class="nav-btn">🏠 Live View</a>
-        <a href="/stats" class="nav-btn">📊 Statistics</a>
-        <a href="/gallery" class="nav-btn">🖼 Gallery</a>
-        <a href="/export/csv" class="nav-btn">⬇ Export CSV</a>
-    </div>
-
-    <div class="stats-strip">
-        <span class="stat-pill">📸 {{ total_captures }} total captures</span>
-        <span class="stat-pill">📄 Page {{ page }} of {{ total_pages }}</span>
-        {% if avg_score is not none %}
-        <span class="stat-pill">☀ Avg score: {{ "%.0f"|format(avg_score) }}%</span>
-        {% endif %}
-    </div>
-
-    <!-- Filter bar -->
-    <div class="filter-bar">
-        <label>Sort:</label>
-        <select id="sortSelect" onchange="applyFilters()">
-            <option value="desc" {% if sort == 'desc' %}selected{% endif %}>Newest first</option>
-            <option value="asc"  {% if sort == 'asc'  %}selected{% endif %}>Oldest first</option>
-        </select>
-        <label>Show:</label>
-        <select id="limitSelect" onchange="applyFilters()">
-            <option value="24"  {% if per_page == 24  %}selected{% endif %}>24 per page</option>
-            <option value="48"  {% if per_page == 48  %}selected{% endif %}>48 per page</option>
-            <option value="96"  {% if per_page == 96  %}selected{% endif %}>96 per page</option>
-        </select>
-    </div>
-
-    <div class="gallery-grid" id="galleryGrid">
-        {% if captures %}
-            {% for cap in captures %}
-            <a class="gallery-card" href="/viewer/{{ cap.timestamp }}">
-                <img src="/image/{{ cap.timestamp }}"
-                     alt="{{ cap.timestamp }}"
-                     onerror="this.src='/static/placeholder.jpg'; this.onerror=null;">
-                <div class="card-body">
-                    <div class="ts">
-                        {{ cap.timestamp | format_ts }}
-                        {% if cap.from_sd %}
-                        <span class="offline-badge">SD</span>
-                        {% endif %}
-                    </div>
-                    <div class="condition-label">{{ cap.condition }}</div>
-                    <div class="mini-score-bar">
-                        <div class="mini-score-fill"
-                             style="width:{{ cap.score }}%;
-                                    background:{{ cap.score | score_color }};"></div>
-                    </div>
-                    <div class="score-text">Clear Sky: {{ "%.0f"|format(cap.score) }}%</div>
-                </div>
-            </a>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <p>No images captured yet.</p>
-                <p style="margin-top:10px;font-size:0.9em;">
-                    Images will appear here once the ESP32 starts sending data.
-                </p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Pagination -->
-    {% if total_pages > 1 %}
-    <div class="pagination">
-        {% if page > 1 %}
-        <a href="{{ url_for('gallery', page=page-1, sort=sort, per_page=per_page) }}"
-           class="page-btn">← Prev</a>
-        {% endif %}
-        {% for p in range(1, total_pages + 1) %}
-        <a href="{{ url_for('gallery', page=p, sort=sort, per_page=per_page) }}"
-           class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
-        {% endfor %}
-        {% if page < total_pages %}
-        <a href="{{ url_for('gallery', page=page+1, sort=sort, per_page=per_page) }}"
-           class="page-btn">Next →</a>
-        {% endif %}
-    </div>
-    {% endif %}
-</div>
-
-<script>
-function applyFilters() {
-    const sort    = document.getElementById('sortSelect').value;
-    const perPage = document.getElementById('limitSelect').value;
-    window.location.href = `/gallery?page=1&sort=${sort}&per_page=${perPage}`;
-}
-</script>
-</body>
-</html>
-'''
+from datetime import datetime
+from collections import defaultdict
+from template_base import (
+    wrap_page, create_header, NAV_BAR,
+    FOLDER_STYLES, IMAGE_GRID_STYLES, STAT_STYLES
+)
 
 
-# ---------------------------------------------------------------------------
-# INDIVIDUAL VIEWER PAGE TEMPLATE
-# ---------------------------------------------------------------------------
-
-VIEWER_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Sky Predictor – {{ timestamp | format_ts }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
-        }
-        .container { max-width: 1100px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 24px; }
-        .header h1 { font-size: 1.8em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .header p  { font-size: 0.95em; opacity: 0.85; margin-top: 6px; }
-
-        .nav-bar {
-            display: flex; gap: 10px; justify-content: center;
-            flex-wrap: wrap; margin-bottom: 22px;
-        }
-        .nav-btn {
-            background: rgba(255,255,255,0.2); color: white;
-            border: 2px solid rgba(255,255,255,0.4);
-            padding: 7px 18px; border-radius: 25px; cursor: pointer;
-            font-size: 0.9em; text-decoration: none; transition: background 0.2s;
-        }
-        .nav-btn:hover  { background: rgba(255,255,255,0.35); }
-        .nav-btn.prev-next {
-            background: rgba(255,255,255,0.3); font-weight: 600;
-        }
-
-        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
-
-        .card {
-            background: white; border-radius: 15px; padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .image-card { display: flex; flex-direction: column; gap: 12px; }
-        .image-card img {
-            width: 100%; border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .image-meta { font-size: 0.85em; color: #555; line-height: 1.6; }
-        .image-meta strong { color: #333; }
-        .download-btn {
-            display: inline-block; background: #667eea; color: white;
-            padding: 8px 18px; border-radius: 8px; text-decoration: none;
-            font-size: 0.9em; text-align: center; margin-top: 6px;
-        }
-        .download-btn:hover { background: #5568d4; }
-
-        .analysis-card h2 {
-            font-size: 1.2em; color: #333; margin-bottom: 14px;
-            border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;
-        }
-        .condition-block {
-            font-size: 1.5em; font-weight: 700; text-align: center;
-            padding: 14px; border-radius: 10px; margin-bottom: 16px;
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-        }
-
-        /* Score bar */
-        .score-row { margin-bottom: 14px; }
-        .score-label {
-            display: flex; justify-content: space-between;
-            font-size: 0.9em; color: #555; margin-bottom: 4px;
-        }
-        .score-bar {
-            width: 100%; height: 22px; background: #e0e0e0;
-            border-radius: 11px; overflow: hidden;
-        }
-        .score-fill { height: 100%; border-radius: 11px; transition: width 0.5s; }
-
-        /* Detail grid */
-        .detail-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            margin-top: 12px;
-        }
-        .detail-item {
-            background: #f8f9fa; border-radius: 8px; padding: 10px;
-        }
-        .detail-item .d-label { font-size: 0.75em; color: #888; margin-bottom: 3px; }
-        .detail-item .d-value { font-size: 1em; font-weight: 600; color: #333; }
-
-        /* Color swatches */
-        .color-section { margin-top: 14px; }
-        .color-section h3 {
-            font-size: 0.9em; color: #666; margin-bottom: 8px;
-        }
-        .color-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
-        .swatch {
-            width: 36px; height: 36px; border-radius: 8px;
-            border: 2px solid rgba(0,0,0,0.1);
-            position: relative;
-        }
-        .swatch-tip {
-            position: absolute; bottom: -22px; left: 50%;
-            transform: translateX(-50%); font-size: 0.65em;
-            white-space: nowrap; color: #555;
-        }
-
-        .sd-badge {
-            display: inline-block; background: #ff9800; color: white;
-            font-size: 0.75em; padding: 2px 8px; border-radius: 10px; margin-left: 6px;
-        }
-        .not-found {
-            color: white; text-align: center; padding: 60px 20px; font-size: 1.1em;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-
-    <div class="header">
-        <h1>Sky Capture Viewer</h1>
-        <p>
-            {{ timestamp | format_ts }}
-            {% if from_sd %}<span class="sd-badge">📁 Restored from SD</span>{% endif %}
-        </p>
-    </div>
-
-    <div class="nav-bar">
-        <a href="/" class="nav-btn">🏠 Live</a>
-        <a href="/gallery" class="nav-btn">🖼 Gallery</a>
-        <a href="/stats" class="nav-btn">📊 Stats</a>
-        {% if prev_ts %}
-        <a href="/viewer/{{ prev_ts }}" class="nav-btn prev-next">← Previous</a>
-        {% endif %}
-        {% if next_ts %}
-        <a href="/viewer/{{ next_ts }}" class="nav-btn prev-next">Next →</a>
-        {% endif %}
-    </div>
-
-    {% if not found %}
-    <div class="not-found">
-        <p>⚠ Capture not found: <strong>{{ timestamp }}</strong></p>
-        <p style="margin-top:12px;font-size:0.9em;">
-            <a href="/gallery" style="color:white;">← Return to gallery</a>
-        </p>
-    </div>
-    {% else %}
-
-    <div class="layout">
-        <!-- Left: Image -->
-        <div class="card image-card">
-            <img src="/image/{{ timestamp }}" alt="{{ timestamp }}"
-                 onerror="this.alt='Image file not found on server';">
-            <div class="image-meta">
-                <div><strong>Timestamp:</strong> {{ timestamp | format_ts }}</div>
-                <div><strong>File:</strong> {{ image_path or 'unknown' }}</div>
-                {% if width and height %}
-                <div><strong>Resolution:</strong> {{ width }} × {{ height }}px</div>
-                {% endif %}
-            </div>
-            <a href="/image/{{ timestamp }}" download="{{ timestamp }}.jpg"
-               class="download-btn">⬇ Download JPEG</a>
-        </div>
-
-        <!-- Right: Analysis -->
-        <div class="card analysis-card">
-            <h2>Analysis Results</h2>
-
-            {% if condition %}
-            <div class="condition-block">{{ condition }}</div>
-            {% endif %}
-
-            <!-- Clear-sky score bar -->
-            {% if score is not none %}
-            <div class="score-row">
-                <div class="score-label">
-                    <span>☀ Clear Sky Score</span>
-                    <span><strong>{{ "%.0f"|format(score) }}%</strong></span>
-                </div>
-                <div class="score-bar">
-                    <div class="score-fill"
-                         style="width:{{ score }}%;
-                                background:{{ score | score_color }};"></div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Detail grid -->
-            <div class="detail-grid">
-                {% if brightness is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Brightness</div>
-                    <div class="d-value">{{ "%.1f"|format(brightness) }}</div>
-                </div>
-                {% endif %}
-                {% if blue_ratio is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Blue Ratio</div>
-                    <div class="d-value">{{ "%.1f"|format(blue_ratio * 100) }}%</div>
-                </div>
-                {% endif %}
-                {% if grey_ratio is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Grey / Cloud Ratio</div>
-                    <div class="d-value">{{ "%.1f"|format(grey_ratio * 100) }}%</div>
-                </div>
-                {% endif %}
-                {% if saturation is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Saturation</div>
-                    <div class="d-value">{{ "%.1f"|format(saturation) }}</div>
-                </div>
-                {% endif %}
-                {% if contrast is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Contrast</div>
-                    <div class="d-value">{{ "%.1f"|format(contrast) }}</div>
-                </div>
-                {% endif %}
-                {% if sky_coverage is not none %}
-                <div class="detail-item">
-                    <div class="d-label">Sky Coverage</div>
-                    <div class="d-value">{{ "%.1f"|format(sky_coverage) }}%</div>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Dominant colours -->
-            {% if dominant_colors %}
-            <div class="color-section">
-                <h3>Dominant Colours</h3>
-                <div class="color-swatches">
-                    {% for color in dominant_colors %}
-                    <div class="swatch"
-                         style="background: rgb({{ color[0] }},{{ color[1] }},{{ color[2] }});"
-                         title="RGB({{ color[0] }},{{ color[1] }},{{ color[2] }})">
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-        </div>
-    </div>
-    {% endif %}
-
-</div>
-</body>
-</html>
-'''
-
-
-# ---------------------------------------------------------------------------
+# ================================================================
 # HELPER FUNCTIONS
-# ---------------------------------------------------------------------------
+# ================================================================
 
-def format_timestamp(ts: str) -> str:
-    """Convert YYYYMMDD_HHMMSS to a readable string."""
+def format_timestamp(ts):
+    """Format timestamp to human-readable"""
+    if not ts:
+        return ''
+    if str(ts).startswith('NORTS_'):
+        return f"NORTS ({ts.replace('NORTS_', '')}ms)"
     try:
-        date_part, time_part = ts.split('_')
-        y, m, d = date_part[:4], date_part[4:6], date_part[6:8]
-        hh, mm, ss = time_part[:2], time_part[2:4], time_part[4:6]
-        return f"{d}/{m}/{y}  {hh}:{mm}:{ss}"
-    except Exception:
-        return ts
+        if isinstance(ts, str):
+            dt = datetime.strptime(ts, '%Y%m%d_%H%M%S')
+        else:
+            dt = ts
+        return dt.strftime('%b %d, %Y at %I:%M %p')
+    except (ValueError, TypeError):
+        return str(ts)
 
 
-def score_to_color(score: float) -> str:
-    """Return a CSS colour that maps linearly from red (0%) to green (100%)."""
+def score_to_color(score):
+    """Map score to color"""
     try:
         s = float(score)
     except (TypeError, ValueError):
         return '#9e9e9e'
     if s >= 75:
-        return '#4caf50'   # Green
+        return '#4caf50'
     if s >= 50:
-        return '#8bc34a'   # Light green
+        return '#8bc34a'
     if s >= 30:
-        return '#ffb300'   # Amber
-    return '#f44336'       # Red
+        return '#ffb300'
+    return '#f44336'
 
 
-def get_paginated_captures(data_manager, page: int, per_page: int, sort: str):
+# ================================================================
+# DATA FUNCTIONS
+# ================================================================
+
+def get_date_folders(data_manager):
     """
-    Return a slice of the capture history plus pagination metadata.
-
-    Returns a dict:
-      captures      – list of dicts for this page
-      total_captures – total number of captures in the database
-      total_pages   – total number of pages
-      avg_score     – average clear-sky score across all captures (or None)
+    Get list of all dates with summary statistics
+    
+    Returns list of dicts:
+        date_key: YYYYMMDD
+        formatted_date: "March 04, 2026"
+        day_of_week: "Wednesday"
+        count: number of images
+        avg_score: average clear sky score
+        best_score: highest score
+        worst_score: lowest score
     """
-    history = data_manager.get_history()    # Full list, newest first from DB
-
-    if sort == 'asc':
-        history = list(reversed(history))
-
-    total = len(history)
-    total_pages = max(1, (total + per_page - 1) // per_page)
-    page = max(1, min(page, total_pages))
-
-    start = (page - 1) * per_page
-    end   = start + per_page
-    slice_ = history[start:end]
-
-    avg_score = None
-    if history:
-        scores = [
-            c.get('analysis', {}).get('clear_sky_score', 0)
-            for c in history
-            if c.get('analysis')
-        ]
-        if scores:
-            avg_score = sum(scores) / len(scores)
-
-    # Flatten each capture for easy template access
-    captures = []
-    for cap in slice_:
-        analysis = cap.get('analysis', {})
-        captures.append({
-            'timestamp': cap.get('timestamp', ''),
-            'image_path': cap.get('image_path', ''),
-            'score':     analysis.get('clear_sky_score', 0),
-            'condition': analysis.get('condition', 'Unknown'),
-            'from_sd':   cap.get('from_sd', False),
+    history = data_manager.get_history()
+    
+    if not history:
+        return []
+    
+    # Group by date
+    days_dict = defaultdict(list)
+    
+    for cap in history:
+        timestamp = cap.get('timestamp', '')
+        if timestamp and len(timestamp) >= 8:
+            date_key = timestamp[:8]  # YYYYMMDD
+            analysis = cap.get('analysis', {})
+            score = analysis.get('clear_sky_score', 0) or 0
+            days_dict[date_key].append(score)
+    
+    # Build folder list
+    folders = []
+    for date_key in sorted(days_dict.keys(), reverse=True):
+        scores = [s for s in days_dict[date_key] if s is not None]
+        
+        # Format date
+        try:
+            date_obj = datetime.strptime(date_key, "%Y%m%d")
+            formatted_date = date_obj.strftime("%B %d, %Y")
+            day_of_week = date_obj.strftime("%A")
+        except:
+            formatted_date = date_key
+            day_of_week = ""
+        
+        folders.append({
+            'date_key': date_key,
+            'formatted_date': formatted_date,
+            'day_of_week': day_of_week,
+            'count': len(scores),
+            'avg_score': round(sum(scores) / len(scores), 1) if scores else 0,
+            'best_score': max(scores) if scores else 0,
+            'worst_score': min(scores) if scores else 0
         })
+    
+    return folders
 
+
+def get_day_images(data_manager, date_key):
+    """
+    Get all images for a specific date with statistics
+    
+    Args:
+        date_key: YYYYMMDD
+    
+    Returns dict:
+        found: boolean
+        date_key: YYYYMMDD
+        formatted_date: "March 04, 2026"
+        day_of_week: "Wednesday"
+        count: number of images
+        avg_score: average score
+        avg_brightness: average brightness
+        avg_blue: average blue coverage
+        best_time: time of best image
+        images: list of image dicts
+    """
+    history = data_manager.get_history()
+    
+    # Filter to this date
+    day_images = []
+    for cap in history:
+        timestamp = cap.get('timestamp', '')
+        if timestamp and timestamp.startswith(date_key):
+            analysis = cap.get('analysis', {})
+            
+            # Extract data
+            brightness_data = analysis.get('brightness', {})
+            features_data = analysis.get('sky_features', {}) or analysis.get('features', {})
+            
+            if isinstance(brightness_data, dict):
+                brightness_avg = brightness_data.get('average', 0) or 0
+            else:
+                brightness_avg = brightness_data or 0
+            
+            if isinstance(features_data, dict):
+                blue_coverage = features_data.get('blue_coverage', 0) or 0
+            else:
+                blue_coverage = features_data or 0
+            
+            score = analysis.get('clear_sky_score', 0) or 0
+            
+            # Parse time
+            try:
+                dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
+                time_str = dt.strftime('%I:%M %p')
+            except:
+                time_str = timestamp[9:] if len(timestamp) > 9 else timestamp
+            
+            day_images.append({
+                'timestamp': timestamp,
+                'time': time_str,
+                'score': score,
+                'brightness': brightness_avg,
+                'blue': blue_coverage,
+                'condition': analysis.get('summary', 'Unknown'),
+                'from_sd': analysis.get('from_sd', False)
+            })
+    
+    if not day_images:
+        return {'found': False}
+    
+    # Calculate stats
+    scores = [img['score'] for img in day_images if img['score']]
+    brightnesses = [img['brightness'] for img in day_images if img['brightness']]
+    blues = [img['blue'] for img in day_images if img['blue']]
+    
+    avg_score = sum(scores) / len(scores) if scores else 0
+    avg_brightness = sum(brightnesses) / len(brightnesses) if brightnesses else 0
+    avg_blue = sum(blues) / len(blues) if blues else 0
+    
+    # Find best time
+    best_img = max(day_images, key=lambda x: x['score'])
+    
+    # Format date
+    try:
+        date_obj = datetime.strptime(date_key, "%Y%m%d")
+        formatted_date = date_obj.strftime("%B %d, %Y")
+        day_of_week = date_obj.strftime("%A")
+    except:
+        formatted_date = date_key
+        day_of_week = ""
+    
     return {
-        'captures':       captures,
-        'total_captures': total,
-        'total_pages':    total_pages,
-        'avg_score':      avg_score,
+        'found': True,
+        'date_key': date_key,
+        'formatted_date': formatted_date,
+        'day_of_week': day_of_week,
+        'count': len(day_images),
+        'avg_score': round(avg_score, 1),
+        'avg_brightness': round(avg_brightness, 1),
+        'avg_blue': round(avg_blue, 1),
+        'best_time': best_img['time'],
+        'images': sorted(day_images, key=lambda x: x['timestamp'], reverse=True)
     }
 
 
 def get_viewer_context(data_manager, timestamp: str):
-    """
-    Build the template context dict for the individual viewer page.
-    Also resolves the previous and next timestamps for navigation.
-    """
-    history = data_manager.get_history()   # Newest first
-    # Build a flat list of timestamps for nav
+    """Get context for individual image viewer"""
+    history = data_manager.get_history()
     ts_list = [c.get('timestamp', '') for c in history]
 
     target = None
@@ -580,44 +223,385 @@ def get_viewer_context(data_manager, timestamp: str):
 
     if not target:
         return {
-            'found':     False,
+            'found': False,
+            'error': 'Capture not found',
             'timestamp': timestamp,
-            'prev_ts':   None,
-            'next_ts':   None,
+            'prev_ts': None,
+            'next_ts': None,
         }
 
-    # Navigation: in the "newest first" list, prev = index+1, next = index-1
-    idx     = ts_list.index(timestamp)
+    idx = ts_list.index(timestamp)
     prev_ts = ts_list[idx + 1] if idx + 1 < len(ts_list) else None
-    next_ts = ts_list[idx - 1] if idx - 1 >= 0              else None
+    next_ts = ts_list[idx - 1] if idx - 1 >= 0 else None
 
     analysis = target.get('analysis', {})
-    dom_colors = analysis.get('dominant_colors', [])
-
-    # dominant_colors can be stored as list of [R,G,B] lists or tuples
-    safe_colors = []
-    for c in (dom_colors or [])[:6]:
-        try:
-            safe_colors.append((int(c[0]), int(c[1]), int(c[2])))
-        except (IndexError, TypeError, ValueError):
-            pass
+    brightness_data = analysis.get('brightness', {})
+    sky_features_data = analysis.get('sky_features', {})
+    
+    if isinstance(brightness_data, dict):
+        brightness_avg = brightness_data.get('average')
+    else:
+        brightness_avg = brightness_data
+    
+    if isinstance(sky_features_data, dict):
+        blue_coverage = sky_features_data.get('blue_coverage')
+    else:
+        blue_coverage = sky_features_data
 
     return {
-        'found':           True,
-        'timestamp':       timestamp,
-        'image_path':      target.get('image_path', ''),
-        'from_sd':         target.get('from_sd', False),
-        'condition':       analysis.get('condition', 'Unknown'),
-        'score':           analysis.get('clear_sky_score'),
-        'brightness':      analysis.get('brightness'),
-        'blue_ratio':      analysis.get('blue_ratio'),
-        'grey_ratio':      analysis.get('grey_ratio'),
-        'saturation':      analysis.get('saturation'),
-        'contrast':        analysis.get('contrast'),
-        'sky_coverage':    analysis.get('sky_coverage_percent'),
-        'dominant_colors': safe_colors,
-        'width':           analysis.get('width'),
-        'height':          analysis.get('height'),
-        'prev_ts':         prev_ts,
-        'next_ts':         next_ts,
+        'found': True,
+        'timestamp': timestamp,
+        'clear_sky_score': analysis.get('clear_sky_score', 0),
+        'summary': analysis.get('summary', 'Unknown'),
+        'brightness_avg': brightness_avg,
+        'blue_coverage': blue_coverage,
+        'from_sd': analysis.get('from_sd', False),
+        'prev_ts': prev_ts,
+        'next_ts': next_ts,
     }
+
+
+# ================================================================
+# GALLERY INDEX TEMPLATE - Shows date folders
+# ================================================================
+
+def create_gallery_index(folders):
+    """Create gallery index showing date folders"""
+    
+    if not folders:
+        empty_content = f"""
+        <div class="container">
+            {create_header("🖼 Gallery", "Browse images by date")}
+            {NAV_BAR}
+            <div class="card">
+                <div class="empty-state">
+                    <h2>No Images Yet</h2>
+                    <p>Images will appear here once the ESP32 starts sending data.</p>
+                </div>
+            </div>
+        </div>
+        """
+        return wrap_page("Gallery - Sky Predictor", empty_content, FOLDER_STYLES)
+    
+    # Build folder cards
+    folder_cards = ""
+    for folder in folders:
+        avg_color = score_to_color(folder['avg_score'])
+        
+        folder_cards += f"""
+        <a href="/gallery/{folder['date_key']}" class="folder-card">
+            <div class="folder-header">
+                <div class="folder-icon">📅</div>
+                <div class="folder-info">
+                    <h3>{folder['formatted_date']}</h3>
+                    <p>{folder['day_of_week']}</p>
+                </div>
+            </div>
+            <div class="folder-stats">
+                <div class="folder-stat">
+                    <div class="folder-stat-value">{folder['count']}</div>
+                    <div class="folder-stat-label">Images</div>
+                </div>
+                <div class="folder-stat">
+                    <div class="folder-stat-value" style="color: {avg_color}">
+                        {folder['avg_score']:.0f}%
+                    </div>
+                    <div class="folder-stat-label">Avg Score</div>
+                </div>
+            </div>
+        </a>
+        """
+    
+    content = f"""
+    <div class="container">
+        {create_header("🖼 Gallery", "Browse images by date")}
+        {NAV_BAR}
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">Select a Date</h2>
+            <div class="folder-grid">
+                {folder_cards}
+            </div>
+        </div>
+    </div>
+    """
+    
+    return wrap_page("Gallery - Sky Predictor", content, FOLDER_STYLES)
+
+
+# ================================================================
+# GALLERY DAY TEMPLATE - Shows images for one date
+# ================================================================
+
+def create_gallery_day(day_data):
+    """Create gallery day view showing all images for a date"""
+    
+    if not day_data.get('found'):
+        error_content = f"""
+        <div class="container">
+            {create_header("🖼 Gallery", "Date not found")}
+            {NAV_BAR}
+            <div class="card">
+                <div class="empty-state">
+                    <h2>Date Not Found</h2>
+                    <p><a href="/gallery">← Back to Gallery</a></p>
+                </div>
+            </div>
+        </div>
+        """
+        return wrap_page("Gallery - Sky Predictor", error_content)
+    
+    # Build stats section
+    avg_color = score_to_color(day_data['avg_score'])
+    stats_html = f"""
+    <div class="stat-grid">
+        <div class="stat-box">
+            <div class="stat-value">{day_data['count']}</div>
+            <div class="stat-label">Total Images</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" style="color: {avg_color}">{day_data['avg_score']:.0f}%</div>
+            <div class="stat-label">Avg Clear Sky</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{day_data['avg_brightness']:.0f}</div>
+            <div class="stat-label">Avg Brightness</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{day_data['avg_blue']:.0f}%</div>
+            <div class="stat-label">Avg Blue Coverage</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{day_data['best_time']}</div>
+            <div class="stat-label">Best Time</div>
+        </div>
+    </div>
+    """
+    
+    # Build image grid
+    image_cards = ""
+    for img in day_data['images']:
+        score_color = score_to_color(img['score'])
+        sd_badge = '<span class="offline-badge">SD</span>' if img['from_sd'] else ''
+        
+        image_cards += f"""
+        <a href="/viewer/{img['timestamp']}" class="image-card">
+            <img src="/image/{img['timestamp']}" 
+                 alt="{img['timestamp']}"
+                 loading="lazy"
+                 onerror="this.src='/image/file/sky_{img['timestamp']}.jpg';">
+            <div class="image-info">
+                <div class="image-time">{img['time']} {sd_badge}</div>
+                <div class="image-score">Score: {img['score']:.0f}%</div>
+                <span class="score-badge" style="background: {score_color}">
+                    {img['condition']}
+                </span>
+            </div>
+        </a>
+        """
+    
+    content = f"""
+    <div class="container">
+        {create_header(f"📅 {day_data['formatted_date']}", day_data['day_of_week'])}
+        {NAV_BAR}
+        
+        <div class="card">
+            <p style="margin-bottom: 20px;">
+                <a href="/gallery" style="color: #667eea; text-decoration: none;">
+                    ← Back to Gallery
+                </a>
+            </p>
+            
+            <h2 style="margin-bottom: 15px;">Daily Statistics</h2>
+            {stats_html}
+            
+            <h2 style="margin: 30px 0 15px 0;">All Images ({day_data['count']})</h2>
+            <div class="image-grid">
+                {image_cards}
+            </div>
+        </div>
+    </div>
+    """
+    
+    extra_styles = STAT_STYLES + IMAGE_GRID_STYLES
+    return wrap_page(f"{day_data['formatted_date']} - Gallery", content, extra_styles)
+
+
+# ================================================================
+# VIEWER TEMPLATE
+# ================================================================
+
+VIEWER_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Viewer - Sky Predictor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .viewer-header {
+            background: #2a2a2a;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .viewer-title {
+            color: white;
+            font-size: 1.2em;
+        }
+        .viewer-nav {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .nav-button:hover {
+            background: #5568d3;
+        }
+        .nav-button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .viewer-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .viewer-image {
+            max-width: 100%;
+            max-height: calc(100vh - 200px);
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .viewer-info {
+            background: #2a2a2a;
+            padding: 20px 30px;
+            color: white;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .info-item {
+            text-align: center;
+        }
+        .info-label {
+            font-size: 0.85em;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .offline-badge {
+            background: #ff9800;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    {% if found %}
+    <div class="viewer-header">
+        <div class="viewer-title">
+            📷 {{ timestamp | format_ts }}
+            {% if from_sd %}
+            <span class="offline-badge">SD</span>
+            {% endif %}
+        </div>
+        <div class="viewer-nav">
+            <a href="/gallery" class="nav-button">← Back to Gallery</a>
+            {% if prev_ts %}
+                <a href="/viewer/{{ prev_ts }}" class="nav-button">← Previous</a>
+            {% else %}
+                <button class="nav-button" disabled>← Previous</button>
+            {% endif %}
+            {% if next_ts %}
+                <a href="/viewer/{{ next_ts }}" class="nav-button">Next →</a>
+            {% else %}
+                <button class="nav-button" disabled>Next →</button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="viewer-main">
+        <img src="/image/{{ timestamp }}" 
+             alt="{{ timestamp }}"
+             class="viewer-image"
+             onerror="this.src='/image/file/sky_{{ timestamp }}.jpg';">
+    </div>
+    
+    <div class="viewer-info">
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Clear Sky Score</div>
+                <div class="info-value" style="color: {{ clear_sky_score | score_color }}">
+                    {{ "%.0f"|format(clear_sky_score) }}%
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Condition</div>
+                <div class="info-value" style="font-size: 1.1em; color: white;">
+                    {{ summary }}
+                </div>
+            </div>
+            {% if brightness_avg %}
+            <div class="info-item">
+                <div class="info-label">Brightness</div>
+                <div class="info-value">
+                    {{ "%.1f"|format(brightness_avg) }}
+                </div>
+            </div>
+            {% endif %}
+            {% if blue_coverage %}
+            <div class="info-item">
+                <div class="info-label">Blue Coverage</div>
+                <div class="info-value">
+                    {{ "%.0f"|format(blue_coverage) }}%
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="viewer-header">
+        <div class="viewer-title">⚠️ Error</div>
+        <div class="viewer-nav">
+            <a href="/gallery" class="nav-button">← Back to Gallery</a>
+        </div>
+    </div>
+    <div class="viewer-main" style="color: white; text-align: center;">
+        <div>
+            <h2>{{ error }}</h2>
+            <p style="margin-top: 20px;">Timestamp: {{ timestamp }}</p>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
+'''

@@ -187,6 +187,7 @@ void handleCapture() {
   
   // Record successful poll
   lastSuccessfulPoll = millis();
+  resetPollerActivity();  // Reset auto-capture mode
   
   captureCount++;
   lastCaptureMs = millis() - startTime;
@@ -208,6 +209,7 @@ void handleCapture() {
 void handleStatus() {
   // Record successful poll
   lastSuccessfulPoll = millis();
+  resetPollerActivity();  // Reset auto-capture mode
   
   String json = "{";
   json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";

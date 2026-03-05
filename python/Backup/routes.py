@@ -3,13 +3,16 @@ Flask Routes Module - V1.1 PULL Mode with Daily View
 
 All endpoints including gallery, daily view, file manager, and viewer
 """
-from data_manager_sqlite import data_manager
-from flask import request, render_template_string, jsonify, send_file
+
+from flask import request, render_template_string, jsonify, send_file, url_for
+import cv2
+import numpy as np
 from datetime import datetime
 import os
 import traceback
 
 from python_config import (
+    MAX_IMAGE_SIZE_MB, ENABLE_LOGGING, LOG_LEVEL,
     ENABLE_BRIGHTNESS_ANALYSIS, ENABLE_COLOR_ANALYSIS, ENABLE_SKY_FEATURES,
     AUTO_REFRESH_INTERVAL, BRIGHTNESS_VERY_BRIGHT, BRIGHTNESS_BRIGHT,
     BRIGHTNESS_MODERATE, BRIGHTNESS_DIM, IMAGE_DIR
@@ -20,14 +23,14 @@ from web_templates import HTML_TEMPLATE, STATS_PAGE_TEMPLATE
 # Import viewer components (with fallback if missing)
 try:
     from image_viewer import (
-        VIEWER_TEMPLATE, format_timestamp, score_to_color,
-        get_date_folders, get_day_images, get_viewer_context,
-        create_gallery_index, create_gallery_day
+        GALLERY_TEMPLATE, VIEWER_TEMPLATE,
+        format_timestamp, score_to_color,
+        get_paginated_captures, get_viewer_context
     )
     HAS_IMAGE_VIEWER = True
-except ImportError:
-    print("⚠ Warning: image_viewer.py not found - viewer/gallery disabled")
-    print("   Copy from: outputs/python_v11_pull/image_viewer.py")
+except ImportError as e:
+    print(f"⚠ Warning: image_viewer.py not found - viewer/gallery disabled")
+    print(f"   Copy from: outputs/python_v11_pull/image_viewer.py")
     HAS_IMAGE_VIEWER = False
 
 # Import daily view (with fallback if missing)
@@ -35,8 +38,8 @@ try:
     from daily_view import DAILY_VIEW_TEMPLATE, get_daily_view_data
     HAS_DAILY_VIEW = True
 except ImportError:
-    print("⚠ Warning: daily_view.py not found - daily view disabled")
-    print("   Copy from: outputs/python_v11_pull/daily_view.py")
+    print(f"⚠ Warning: daily_view.py not found - daily view disabled")
+    print(f"   Copy from: outputs/python_v11_pull/daily_view.py")
     HAS_DAILY_VIEW = False
 
 
@@ -55,6 +58,10 @@ def register_routes(app):
         def _score_color(score):
             return score_to_color(score)
     
+    # Lazy imports
+    from analysis_core import analyze_image, get_analysis_summary
+    from data_manager_sqlite import data_manager
+    from image_storage import save_image
     
     # ================================================================
     # MAIN PAGES
@@ -71,32 +78,28 @@ def register_routes(app):
         return render_template_string(STATS_PAGE_TEMPLATE)
     
     @app.route('/gallery')
-    def gallery_index():
-        """Gallery index - shows list of dates"""
+    def gallery():
+        """Paginated grid of all captured images"""
         if not HAS_IMAGE_VIEWER:
             return "Gallery unavailable - image_viewer.py missing", 500
         
         try:
-            folders = get_date_folders(data_manager)
-            return create_gallery_index(folders)
+            page     = request.args.get('page',     1,    type=int)
+            per_page = request.args.get('per_page', 24,   type=int)
+            sort     = request.args.get('sort',     'desc')
+            
+            per_page = per_page if per_page in (24, 48, 96) else 24
+            
+            pagination = get_paginated_captures(data_manager, page, per_page, sort)
+            
+            return render_template_string(
+                GALLERY_TEMPLATE,
+                **pagination
+            )
         except Exception as e:
-            print(f"Error in gallery index: {e}")
+            print(f"Error in gallery: {e}")
             traceback.print_exc()
             return f"Gallery error: {e}", 500
-    
-    @app.route('/gallery/<date_key>')
-    def gallery_day(date_key):
-        """Gallery day view - shows all images for a specific date"""
-        if not HAS_IMAGE_VIEWER:
-            return "Gallery unavailable - image_viewer.py missing", 500
-        
-        try:
-            day_data = get_day_images(data_manager, date_key)
-            return create_gallery_day(day_data)
-        except Exception as e:
-            print(f"Error in gallery day view: {e}")
-            traceback.print_exc()
-            return f"Gallery day error: {e}", 500
     
     @app.route('/viewer/<timestamp>')
     def viewer(timestamp):

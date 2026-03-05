@@ -35,6 +35,10 @@ extern WebServer server;
 extern bool sdCardAvailable;   // true after successful initSDCard()
 extern int  sdQueueCount;      // Approximate count of images in queue
 
+// V1.1 Poller tracking and auto-capture
+extern unsigned long lastSuccessfulPoll;   // Last time poller made a request
+extern unsigned long lastAutoCaptureTime;  // Last auto-capture to SD
+
 // SD file info struct for browser
 struct SDFileInfo {
   String name;
@@ -134,5 +138,10 @@ void handleControlPause();
 void handleControlResume();
 void handleControlCapture();
 void handleControlStatus();
+
+// -- Auto-Capture (auto_capture.ino) --
+void checkAutoCapture();
+void performAutoCapture();
+void resetPollerActivity();
 
 #endif // GLOBALS_H

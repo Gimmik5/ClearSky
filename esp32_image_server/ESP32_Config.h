@@ -150,4 +150,13 @@ const char* WIFI_PASSWORD = "your_actual_wifi_password";
 // Prevents server overload when Python fetches many queued images
 #define SD_SYNC_DELAY_MS 500
 
+// When poller is inactive, how often to auto-capture to SD (ms)
+// Default: 10 seconds (matches typical Python polling interval)
+#define FALLBACK_CAPTURE_INTERVAL_MS 10000
+
+// How long to wait before considering poller "dead" (ms)
+// Default: 60 seconds (6x the normal polling interval)
+#define POLL_TIMEOUT_MS 60000
+
+
 #endif // ESP32_CONFIG_H

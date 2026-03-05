@@ -67,16 +67,14 @@ void setup() {
 
 // ===== MAIN LOOP =====
 void loop() {
-  #if ENABLE_WATCHDOG
-    esp_task_wdt_reset();
-  #endif
   
-  // Handle serial commands
-  checkSerialCommands();
-  
-  #if USE_PULL_MODE
+   #if USE_PULL_MODE
     // PULL MODE: Handle HTTP server requests
     handleServerClients();
+
+    #if ENABLE_SD_CARD
+      checkAutoCapture();
+    #endif
     
   #else
     // PUSH MODE: Capture and send at intervals
@@ -95,6 +93,13 @@ void loop() {
         esp_deep_sleep_start();
       }
     #endif
+  #endif
+
+  // Handle serial commands
+  checkSerialCommands();
+  
+  #if ENABLE_WATCHDOG
+    esp_task_wdt_reset();
   #endif
   
   delay(100);

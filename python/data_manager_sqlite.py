@@ -1,8 +1,11 @@
 """
-Data Manager Module - SQLite Version
-Replaces JSON-based storage with SQLite database
+Data Manager Module - SQLite Version - FIXED
+Properly formats timestamps for web interface compatibility
 
-Maintains same interface as before, but uses database backend
+FIXES:
+- Converts database timestamps to YYYYMMDD_HHMMSS format
+- Ensures web code can properly separate by days
+- Maintains backward compatibility
 """
 
 from datetime import datetime
@@ -16,19 +19,62 @@ from database_operations import (
 )
 
 
+def format_timestamp_for_web(timestamp):
+    """
+    Convert database timestamp to web-compatible format
+    
+    Args:
+        timestamp: Can be datetime object, ISO string, or YYYYMMDD_HHMMSS string
+    
+    Returns:
+        str: Timestamp in YYYYMMDD_HHMMSS format
+    """
+    if timestamp is None:
+        return None
+    
+    # If already in correct format, return as-is
+    if isinstance(timestamp, str):
+        # Check if already in YYYYMMDD_HHMMSS format
+        if len(timestamp) == 15 and '_' in timestamp and timestamp[:8].isdigit():
+            return timestamp
+        
+        # Handle NORTS timestamps
+        if timestamp.startswith('NORTS_'):
+            return timestamp
+        
+        # Try to parse ISO format from database
+        try:
+            # SQLite returns: "2026-03-04 14:30:22"
+            dt = datetime.fromisoformat(timestamp.replace(' ', 'T'))
+            return dt.strftime('%Y%m%d_%H%M%S')
+        except:
+            pass
+        
+        # Try other formats
+        try:
+            dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+            return dt.strftime('%Y%m%d_%H%M%S')
+        except:
+            pass
+    
+    # If datetime object
+    if isinstance(timestamp, datetime):
+        return timestamp.strftime('%Y%m%d_%H%M%S')
+    
+    # Fallback: return as string
+    return str(timestamp)
+
+
 class DataManager:
     """
     Manages all data storage and retrieval
     
-    Now uses SQLite database instead of JSON files
-    Interface remains similar for backward compatibility
+    FIXED: Properly formats timestamps for web interface
     """
     
     def __init__(self):
         """Initialize data manager and ensure database exists"""
-        # Ensure database is created
         create_database()
-        
         print("✓ Data Manager initialized (SQLite backend)")
     
     
@@ -43,7 +89,22 @@ class DataManager:
         """
         # Convert timestamp string to datetime if needed
         if isinstance(timestamp, str):
-            timestamp_dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+            # Handle NORTS (No Real Time Sync) fallback timestamps
+            if timestamp.startswith("NORTS_"):
+                try:
+                    millis = int(timestamp.replace("NORTS_", ""))
+                    timestamp_dt = datetime.now()
+                    print(f"[DataManager] ⚠ NORTS timestamp detected ({millis}ms since boot) - using current time")
+                except ValueError:
+                    timestamp_dt = datetime.now()
+                    print(f"[DataManager] ⚠ Invalid NORTS timestamp - using current time")
+            else:
+                # Normal timestamp format: YYYYMMDD_HHMMSS
+                try:
+                    timestamp_dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+                except ValueError:
+                    timestamp_dt = datetime.now()
+                    print(f"[DataManager] ⚠ Invalid timestamp format '{timestamp}' - using current time")
         else:
             timestamp_dt = timestamp
         
@@ -96,13 +157,17 @@ class DataManager:
                 "analysis": {}
             }
         
+        # FIXED: Format timestamp for web compatibility
+        formatted_timestamp = format_timestamp_for_web(result.get('timestamp'))
+        
         # Format for compatibility with old interface
         return {
-            "timestamp": result.get('timestamp'),
+            "timestamp": formatted_timestamp,
             "image_path": result.get('image_path'),
             "analysis": {
                 "clear_sky_score": result.get('clear_sky_score'),
                 "summary": result.get('sky_condition'),
+                "sky_condition": result.get('sky_condition'),  # Add this too
                 "brightness": {
                     "average": result.get('brightness_average'),
                     "score": result.get('brightness_score')
@@ -110,7 +175,8 @@ class DataManager:
                 "sky_features": {
                     "blue_coverage": result.get('blue_coverage_percent'),
                     "gray_coverage": result.get('gray_coverage_percent')
-                }
+                },
+                "from_sd": result.get('from_sd', False)
             }
         }
     
@@ -119,11 +185,13 @@ class DataManager:
         """
         Get recent captures with analysis
         
+        FIXED: Properly formats timestamps for web interface
+        
         Args:
             limit (int): Maximum number of records (default 100)
         
         Returns:
-            list: List of capture records
+            list: List of capture records with formatted timestamps
         """
         if limit is None:
             limit = 100
@@ -133,19 +201,25 @@ class DataManager:
         # Format for compatibility
         history = []
         for row in results:
+            # FIXED: Convert database timestamp to web-compatible format
+            db_timestamp = row.get('timestamp')
+            formatted_timestamp = format_timestamp_for_web(db_timestamp)
+            
             history.append({
-                "timestamp": row.get('timestamp'),
+                "timestamp": formatted_timestamp,  # Now in YYYYMMDD_HHMMSS format
                 "image_path": row.get('image_path'),
                 "image_filename": row.get('image_filename'),
                 "analysis": {
                     "clear_sky_score": row.get('clear_sky_score'),
                     "summary": row.get('sky_condition'),
+                    "sky_condition": row.get('sky_condition'),
                     "brightness": {
                         "average": row.get('brightness_average')
                     },
                     "sky_features": {
                         "blue_coverage": row.get('blue_coverage_percent')
-                    }
+                    },
+                    "from_sd": row.get('from_sd', False)
                 }
             })
         
@@ -178,83 +252,34 @@ class DataManager:
     
     def export_csv(self, filepath=None):
         """
-        Export data to CSV file
+        Export all data to CSV file
         
         Args:
-            filepath (str): Output file path (auto-generated if None)
+            filepath (str): Path to save CSV (default: sky_data_YYYYMMDD_HHMMSS.csv)
         
         Returns:
-            str: Path to exported file
+            str: Path to created CSV file
         """
-        if filepath is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = f"sky_data_export_{timestamp}.csv"
-        
-        row_count = export_to_csv(filepath)
-        
-        print(f"✓ Exported {row_count} records to {filepath}")
-        
-        return filepath
+        return export_to_csv(filepath)
     
     
-    def save_data(self):
+    def get_daily_statistics(self, days_back=7):
         """
-        Save data (no-op for database version)
-        Database auto-saves on each operation
-        Kept for backward compatibility
-        """
-        pass
-    
-    
-    def load_data(self):
-        """
-        Load data (no-op for database version)
-        Database always has latest data
-        Kept for backward compatibility
-        """
-        pass
-    
-    
-    def get_daily_stats(self, days=7):
-        """
-        Get daily statistics for recent days
+        Get statistics grouped by day
         
         Args:
-            days (int): Number of days to retrieve
+            days_back (int): Number of days to include
         
         Returns:
             list: Daily statistics
         """
-        return get_daily_statistics(days)
+        return get_daily_statistics(days_back)
     
     
-    def get_capture_count(self):
-        """Get total number of captures"""
+    def get_count(self):
+        """Get total count of captures"""
         return get_capture_count()
 
 
-# Global instance (singleton pattern)
+# Global instance
 data_manager = DataManager()
-
-
-if __name__ == '__main__':
-    """Test data manager"""
-    print("\n" + "="*60)
-    print("Testing Data Manager (SQLite Backend)")
-    print("="*60 + "\n")
-    
-    # Test getting latest
-    latest = data_manager.get_latest()
-    print("Latest capture:")
-    print(f"  Timestamp: {latest.get('timestamp')}")
-    print(f"  Image: {latest.get('image_path')}")
-    
-    # Test getting statistics
-    print("\nStatistics:")
-    stats = data_manager.get_statistics()
-    for key, value in stats.items():
-        print(f"  {key}: {value}")
-    
-    print("\n" + "="*60)
-    print("Data Manager ready!")
-    print("="*60 + "\n")

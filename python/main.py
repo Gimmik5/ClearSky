@@ -9,7 +9,7 @@ Press Ctrl+C to stop everything
 """
 
 import threading
-from python_config import HOST, PORT, DEBUG
+from python_config import HOST, PORT
 from server_utils import print_banner, print_startup_info
 from server_init import initialize_server
 from graceful_shutdown import register_signal_handlers
