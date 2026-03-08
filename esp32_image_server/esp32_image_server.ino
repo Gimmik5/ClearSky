@@ -25,26 +25,7 @@
 // ===== SETUP =====
 void setup() {
   initSystem();
-  initLED();
-  initWatchdog();
-  
-  // Initialize camera
-  if (!initCamera()) {
-    debugPrint("âœ— Camera init failed - halting");
-    while(1) {
-      blinkError();
-      delay(1000);
-    }
-  }
-  
-  // Initialize WiFi
-  if (!initWiFi()) {
-    debugPrint("âœ— WiFi init failed - halting");
-    while(1) {
-      blinkError();
-      delay(1000);
-    }
-  }
+
   
   // Initialize appropriate mode
   #if USE_PULL_MODE
@@ -102,5 +83,5 @@ void loop() {
     esp_task_wdt_reset();
   #endif
   
-  delay(100);
+  delay(600);
 }

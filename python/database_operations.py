@@ -13,8 +13,9 @@ from database_schema import get_database_path
 
 def get_connection():
     """Get database connection"""
-    conn = sqlite3.connect(get_database_path())
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    conn = sqlite3.connect(get_database_path(), timeout=30.0)  # ADD timeout
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")  # ADD this line
     return conn
 
 
@@ -39,25 +40,28 @@ def insert_capture(timestamp, image_path, image_filename, image_size_bytes=None,
         int: capture_id of newly created record
     """
     conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        INSERT INTO captures (
-            timestamp, image_path, image_filename, 
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT OR IGNORE INTO captures (
+                timestamp, image_path, image_filename, 
+                image_size_bytes, image_width, image_height,
+                upload_success
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            timestamp, image_path, image_filename,
             image_size_bytes, image_width, image_height,
-            upload_success
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        timestamp, image_path, image_filename,
-        image_size_bytes, image_width, image_height,
-        True
-    ))
+            True
+        ))
+        
+        capture_id = cursor.lastrowid
+        conn.commit()
     
-    capture_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
-    return capture_id
+        return capture_id
+    finally:
+        # This ensures the database is UNLOCKED even if the query fails
+        conn.close()
 
 
 def get_capture_by_id(capture_id):
@@ -524,3 +528,72 @@ if __name__ == '__main__':
     print("\n" + "="*60)
     print("Database operations module ready!")
     print("="*60 + "\n")
+    
+def get_distinct_dates_with_stats():
+    """
+    Get all distinct dates with statistics using efficient SQL
+    
+    Returns list of dicts:
+        date: YYYY-MM-DD
+        count: number of captures that day
+        avg_score: average clear sky score
+        max_score: highest score that day
+        min_score: lowest score that day
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT 
+            DATE(c.timestamp) as date,
+            COUNT(*) as count,
+            ROUND(AVG(sa.clear_sky_score), 1) as avg_score,
+            MAX(sa.clear_sky_score) as max_score,
+            MIN(sa.clear_sky_score) as min_score
+        FROM captures c
+        LEFT JOIN sky_analysis sa ON c.capture_id = sa.capture_id
+        GROUP BY DATE(c.timestamp)
+        ORDER BY date DESC
+    """)
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in results]
+
+
+def get_captures_for_date(date_string, limit=1000):
+    """
+    Get all captures for a specific date
+    
+    Args:
+        date_string: Date in YYYY-MM-DD format
+        limit: Maximum captures to return (default 1000)
+    
+    Returns:
+        List of capture dicts with analysis data
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT 
+            c.capture_id,
+            c.timestamp,
+            c.image_path,
+            c.image_filename,
+            sa.clear_sky_score,
+            sa.sky_condition,
+            sa.brightness_average,
+            sa.blue_coverage_percent
+        FROM captures c
+        LEFT JOIN sky_analysis sa ON c.capture_id = sa.capture_id
+        WHERE DATE(c.timestamp) = ?
+        ORDER BY c.timestamp DESC
+        LIMIT ?
+    """, (date_string, limit))
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in results]

@@ -22,6 +22,9 @@
 #include "globals.h"
 #include "SD_MMC.h"
 #include "FS.h"
+#if ENABLE_WATCHDOG
+  #include "esp_task_wdt.h"
+#endif
 
 // ===== PRIVATE HELPERS =====
 
@@ -31,24 +34,25 @@ static void collectSortedFileList(std::vector<String>& files) {
   if (!root || !root.isDirectory()) return;
 
   File entry = root.openNextFile();
+  int count = 0;
   while (entry) {
+    
+    // --- ADD THIS LINE TO FEED THE WATCHDOG ---
+    #if ENABLE_WATCHDOG 
+    if (count++ % 10 == 0) esp_task_wdt_reset(); 
+    #endif
+
     if (!entry.isDirectory()) {
       String name = entry.name();
       if (name.endsWith(".jpg")) {
-        // Strip directory prefix, keep just filename
-        int lastSlash = name.lastIndexOf('/');
-        if (lastSlash >= 0) {
-          name = name.substring(lastSlash + 1);
-        }
         files.push_back(name);
       }
     }
     entry = root.openNextFile();
+    
+    // Safety cap: Don't try to process more than 200 images at once
+    if (files.size() > 200) break; 
   }
-  root.close();
-
-  // Sort ascending by filename (timestamp format = lexicographic order)
-  std::sort(files.begin(), files.end());
 }
 
 // ===== PUBLIC API =====
@@ -225,7 +229,6 @@ bool deleteImageFromSD(const String& filename) {
   
   return ok;
 }
-
 int countQueuedImages() {
   if (!sdCardAvailable) return 0;
   std::vector<String> files;

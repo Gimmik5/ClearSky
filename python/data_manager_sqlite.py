@@ -97,7 +97,7 @@ class DataManager:
                     print(f"[DataManager] ⚠ NORTS timestamp detected ({millis}ms since boot) - using current time")
                 except ValueError:
                     timestamp_dt = datetime.now()
-                    print(f"[DataManager] ⚠ Invalid NORTS timestamp - using current time")
+                    print("[DataManager] ⚠ Invalid NORTS timestamp - using current time")
             else:
                 # Normal timestamp format: YYYYMMDD_HHMMSS
                 try:
@@ -279,7 +279,9 @@ class DataManager:
     def get_count(self):
         """Get total count of captures"""
         return get_capture_count()
-
+    def save_data(self):
+        """Dummy method for backward compatibility with older poller versions"""
+        pass
 
 # Global instance
 data_manager = DataManager()

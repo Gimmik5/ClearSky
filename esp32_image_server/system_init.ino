@@ -42,18 +42,40 @@ void initSystem() {
     Serial.println("ESP32-CAM Image Server V1.1");
     Serial.println("SD Card Offline Storage Edition");
     Serial.println("========================================");
-  #endif
   
+  #endif
+  Serial.println("[DEBUG] About to init LED"); //debug addition
   initLED();
   
+
+  Serial.println("[DEBUG] About to init watchdog"); //debug addition
   #if ENABLE_WATCHDOG
     initWatchdog();
   #endif
   
   // Camera init (handled in main .ino setup)
-  
+    Serial.println("[DEBUG] About to init camera");
+  if (!initCamera()) {
+    debugPrint("✗ Camera init failed - halting");
+    while(1) {
+      blinkError();
+      delay(1000);
+    }
+  }
+  Serial.println("[DEBUG] Camera init succeeded");
+
   // WiFi init (handled in main .ino setup)
-  
+  Serial.println("[DEBUG] About to init WiFi");
+  if (!initWiFi()) {
+    debugPrint("✗ WiFi init failed - halting");
+    while(1) {
+      blinkError();
+      delay(1000);
+    }
+  }
+  Serial.println("[DEBUG] WiFi init succeeded");
+
+
   // NTP sync (after WiFi connects)
   if (WiFi.status() == WL_CONNECTED) {
     initNTP();
@@ -65,10 +87,25 @@ void initSystem() {
   #if ENABLE_SD_CARD
     if (!initSDCard()) {
       debugPrint("[Init] SD card unavailable - offline storage disabled");
+      sdCardAvailable = false;
     } else {
-      int queued = countQueuedImages();
-      if (queued > 0) {
-        debugPrintf("[Init] %d image(s) waiting in offline queue", queued);
+      sdCardAvailable = true;
+      
+      // Show SD stats
+      uint64_t totalMB = SD_MMC.totalBytes() / (1024 * 1024);
+      uint64_t usedMB  = SD_MMC.usedBytes()  / (1024 * 1024);
+      debugPrintf("[SD] Ready  Total: %lluMB  Used: %lluMB", totalMB, usedMB);
+      debugPrint("[Init] SD card ready - offline storage enabled");
+      
+      // Optional: Count queue only if usage is low
+      // (prevents out-of-memory with thousands of files)
+      if (getSDUsagePercent() < 20) {
+        int queued = countQueuedImages();
+        if (queued > 0) {
+          debugPrintf("[Init] %d image(s) in offline queue", queued);
+        }
+      } else {
+        debugPrint("[Init] Large queue detected - count skipped (check /sd/browse)");
       }
     }
   #endif
@@ -103,8 +140,7 @@ void printStartupInfo() {
     
     #if ENABLE_SD_CARD
       if (sdCardAvailable) {
-        Serial.printf("SD Card: %d%% used, %d queued\n", 
-                      getSDUsagePercent(), sdQueueCount);
+        Serial.printf("SD Card: %d%% used\n", getSDUsagePercent());
       }
     #endif
     

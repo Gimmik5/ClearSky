@@ -37,6 +37,12 @@ def create_database():
     
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+    # Only configure WAL when database is first created
+    if not db_exists:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+
+    cursor.execute("PRAGMA busy_timeout=30000")
     
     if not db_exists:
         print("\n" + "="*60)

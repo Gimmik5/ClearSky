@@ -7,7 +7,7 @@ DESIGN:
 - /gallery/<date> → Show all images for that specific date
 - /viewer/<timestamp> → Show individual image
 """
-
+from database_operations import get_distinct_dates_with_stats, get_captures_for_date
 from datetime import datetime
 from collections import defaultdict
 from template_base import (
@@ -59,6 +59,9 @@ def get_date_folders(data_manager):
     """
     Get list of all dates with summary statistics
     
+    FIXED: Uses SQL to get distinct dates directly from database
+    No longer limited by get_history() default limit
+    
     Returns list of dicts:
         date_key: YYYYMMDD
         formatted_date: "March 04, 2026"
@@ -68,44 +71,37 @@ def get_date_folders(data_manager):
         best_score: highest score
         worst_score: lowest score
     """
-    history = data_manager.get_history()
+    # Get all distinct dates with stats from database (efficient SQL query)
+    date_stats = get_distinct_dates_with_stats()
     
-    if not history:
+    if not date_stats:
         return []
     
-    # Group by date
-    days_dict = defaultdict(list)
-    
-    for cap in history:
-        timestamp = cap.get('timestamp', '')
-        if timestamp and len(timestamp) >= 8:
-            date_key = timestamp[:8]  # YYYYMMDD
-            analysis = cap.get('analysis', {})
-            score = analysis.get('clear_sky_score', 0) or 0
-            days_dict[date_key].append(score)
-    
-    # Build folder list
+    # Format for display
     folders = []
-    for date_key in sorted(days_dict.keys(), reverse=True):
-        scores = [s for s in days_dict[date_key] if s is not None]
+    for row in date_stats:
+        date_str = row.get('date')  # YYYY-MM-DD from database
         
-        # Format date
+        if not date_str:
+            continue
+        
+        # Convert YYYY-MM-DD to YYYYMMDD for consistency
         try:
-            date_obj = datetime.strptime(date_key, "%Y%m%d")
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            date_key = date_obj.strftime("%Y%m%d")  # YYYYMMDD
             formatted_date = date_obj.strftime("%B %d, %Y")
             day_of_week = date_obj.strftime("%A")
         except:
-            formatted_date = date_key
-            day_of_week = ""
+            continue
         
         folders.append({
             'date_key': date_key,
             'formatted_date': formatted_date,
             'day_of_week': day_of_week,
-            'count': len(scores),
-            'avg_score': round(sum(scores) / len(scores), 1) if scores else 0,
-            'best_score': max(scores) if scores else 0,
-            'worst_score': min(scores) if scores else 0
+            'count': row.get('count', 0),
+            'avg_score': row.get('avg_score', 0) or 0,
+            'best_score': row.get('max_score', 0) or 0,
+            'worst_score': row.get('min_score', 0) or 0
         })
     
     return folders
@@ -115,8 +111,11 @@ def get_day_images(data_manager, date_key):
     """
     Get all images for a specific date with statistics
     
+    FIXED: Uses SQL to query specific date directly
+    No longer limited by get_history() default limit
+    
     Args:
-        date_key: YYYYMMDD
+        date_key: YYYYMMDD format (e.g., "20260304")
     
     Returns dict:
         found: boolean
@@ -130,71 +129,76 @@ def get_day_images(data_manager, date_key):
         best_time: time of best image
         images: list of image dicts
     """
-    history = data_manager.get_history()
-    
-    # Filter to this date
-    day_images = []
-    for cap in history:
-        timestamp = cap.get('timestamp', '')
-        if timestamp and timestamp.startswith(date_key):
-            analysis = cap.get('analysis', {})
-            
-            # Extract data
-            brightness_data = analysis.get('brightness', {})
-            features_data = analysis.get('sky_features', {}) or analysis.get('features', {})
-            
-            if isinstance(brightness_data, dict):
-                brightness_avg = brightness_data.get('average', 0) or 0
-            else:
-                brightness_avg = brightness_data or 0
-            
-            if isinstance(features_data, dict):
-                blue_coverage = features_data.get('blue_coverage', 0) or 0
-            else:
-                blue_coverage = features_data or 0
-            
-            score = analysis.get('clear_sky_score', 0) or 0
-            
-            # Parse time
-            try:
-                dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
-                time_str = dt.strftime('%I:%M %p')
-            except:
-                time_str = timestamp[9:] if len(timestamp) > 9 else timestamp
-            
-            day_images.append({
-                'timestamp': timestamp,
-                'time': time_str,
-                'score': score,
-                'brightness': brightness_avg,
-                'blue': blue_coverage,
-                'condition': analysis.get('summary', 'Unknown'),
-                'from_sd': analysis.get('from_sd', False)
-            })
-    
-    if not day_images:
+    # Convert YYYYMMDD to YYYY-MM-DD for SQL query
+    try:
+        date_obj = datetime.strptime(date_key, "%Y%m%d")
+        sql_date = date_obj.strftime("%Y-%m-%d")
+        formatted_date = date_obj.strftime("%B %d, %Y")
+        day_of_week = date_obj.strftime("%A")
+    except:
         return {'found': False}
     
-    # Calculate stats
-    scores = [img['score'] for img in day_images if img['score']]
-    brightnesses = [img['brightness'] for img in day_images if img['brightness']]
-    blues = [img['blue'] for img in day_images if img['blue']]
+    # Get all captures for this date from database (efficient SQL query)
+    captures = get_captures_for_date(sql_date)
     
+    if not captures:
+        return {'found': False}
+    
+    # Process captures
+    day_images = []
+    scores = []
+    brightnesses = []
+    blues = []
+    
+    for cap in captures:
+        # Extract timestamp
+        timestamp = cap.get('timestamp')
+        
+        # Format timestamp for web (needs to be YYYYMMDD_HHMMSS)
+        if isinstance(timestamp, str):
+            # Database might return ISO format
+            try:
+                if ' ' in timestamp:  # "2026-03-04 14:30:22"
+                    dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    timestamp_formatted = dt.strftime("%Y%m%d_%H%M%S")
+                    time_str = dt.strftime("%I:%M %p")
+                else:  # Already formatted
+                    timestamp_formatted = timestamp
+                    dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+                    time_str = dt.strftime("%I:%M %p")
+            except:
+                timestamp_formatted = timestamp
+                time_str = timestamp[9:] if len(timestamp) > 9 else timestamp
+        else:
+            timestamp_formatted = str(timestamp)
+            time_str = str(timestamp)
+        
+        score = cap.get('clear_sky_score', 0) or 0
+        brightness = cap.get('brightness_average', 0) or 0
+        blue = cap.get('blue_coverage_percent', 0) or 0
+        
+        scores.append(score)
+        brightnesses.append(brightness)
+        blues.append(blue)
+        
+        day_images.append({
+            'timestamp': timestamp_formatted,
+            'time': time_str,
+            'score': score,
+            'brightness': brightness,
+            'blue': blue,
+            'condition': cap.get('sky_condition', 'Unknown'),
+            'from_sd': False
+        })
+    
+    # Calculate statistics
     avg_score = sum(scores) / len(scores) if scores else 0
     avg_brightness = sum(brightnesses) / len(brightnesses) if brightnesses else 0
     avg_blue = sum(blues) / len(blues) if blues else 0
     
     # Find best time
-    best_img = max(day_images, key=lambda x: x['score'])
-    
-    # Format date
-    try:
-        date_obj = datetime.strptime(date_key, "%Y%m%d")
-        formatted_date = date_obj.strftime("%B %d, %Y")
-        day_of_week = date_obj.strftime("%A")
-    except:
-        formatted_date = date_key
-        day_of_week = ""
+    best_img = max(day_images, key=lambda x: x['score']) if day_images else None
+    best_time = best_img['time'] if best_img else "N/A"
     
     return {
         'found': True,
@@ -205,10 +209,9 @@ def get_day_images(data_manager, date_key):
         'avg_score': round(avg_score, 1),
         'avg_brightness': round(avg_brightness, 1),
         'avg_blue': round(avg_blue, 1),
-        'best_time': best_img['time'],
+        'best_time': best_time,
         'images': sorted(day_images, key=lambda x: x['timestamp'], reverse=True)
     }
-
 
 def get_viewer_context(data_manager, timestamp: str):
     """Get context for individual image viewer"""

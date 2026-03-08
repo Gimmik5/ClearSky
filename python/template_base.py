@@ -74,7 +74,6 @@ NAV_BAR = """
     <div class="nav-bar">
         <a href="/" class="nav-btn">🏠 Live View</a>
         <a href="/gallery" class="nav-btn">🖼 Gallery</a>
-        <a href="/daily" class="nav-btn">📅 Daily View</a>
         <a href="/stats" class="nav-btn">📊 Statistics</a>
         <a href="/files" class="nav-btn">📁 File Manager</a>
         <a href="/export/csv" class="nav-btn">⬇ Export CSV</a>

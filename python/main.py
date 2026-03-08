@@ -20,8 +20,8 @@ from web_server import create_flask_app, start_web_server
 # ── ESP32 Configuration ────────────────────────────────────────────────────────
 ESP32_IP              = "REDACTED"  # Update if ESP32 IP changes
 ESP32_PORT            = 80
-POLL_INTERVAL_SECONDS = 10
-REQUEST_TIMEOUT       = 15
+POLL_INTERVAL_SECONDS = 300
+REQUEST_TIMEOUT       = 25
 
 
 def main():
@@ -44,7 +44,7 @@ def main():
     # Start ESP32 poller in background thread
     poller = ESP32Poller(
         esp32_ip=ESP32_IP,
-        esp32_port=ESP32_PORT,
+        esp32_port=ESP32_PORT, 
         poll_interval=POLL_INTERVAL_SECONDS,
         request_timeout=REQUEST_TIMEOUT
     )

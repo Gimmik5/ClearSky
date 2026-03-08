@@ -32,7 +32,7 @@ const char* WIFI_PASSWORD = "your_actual_wifi_password";
 
 // ===== CAPTURE TIMING =====
 #define DEFAULT_CAPTURE_INTERVAL_MS 30000   // Default: capture every 30 seconds
-#define MIN_CAPTURE_INTERVAL_MS 5000        // Minimum: 5 seconds between captures
+#define MIN_CAPTURE_INTERVAL_MS 20000        // Minimum: 5 seconds between captures
 
 // ===== CAMERA SETTINGS =====
 
@@ -152,11 +152,11 @@ const char* WIFI_PASSWORD = "your_actual_wifi_password";
 
 // When poller is inactive, how often to auto-capture to SD (ms)
 // Default: 10 seconds (matches typical Python polling interval)
-#define FALLBACK_CAPTURE_INTERVAL_MS 10000
+#define FALLBACK_CAPTURE_INTERVAL_MS 300000
 
 // How long to wait before considering poller "dead" (ms)
 // Default: 60 seconds (6x the normal polling interval)
-#define POLL_TIMEOUT_MS 60000
+#define POLL_TIMEOUT_MS 360000
 
 
 #endif // ESP32_CONFIG_H
