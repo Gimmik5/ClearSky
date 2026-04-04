@@ -10,8 +10,8 @@ FIXES:
 
 from datetime import datetime
 import os
-from database_schema import create_database
-from database_operations import (
+from data.schema import create_database
+from data.operations import (
     insert_capture, insert_sky_analysis, mark_analysis_complete,
     get_latest_capture_with_analysis, get_recent_captures_with_analysis,
     get_statistics, get_daily_statistics, export_to_csv,

@@ -8,7 +8,7 @@ No ORM - just clean, fast database operations
 
 import sqlite3
 from datetime import datetime
-from database_schema import get_database_path
+from data.schema import get_database_path
 
 
 def get_connection():

@@ -9,11 +9,13 @@ Easily extensible for future sensors
 import sqlite3
 import os
 from datetime import datetime
-
+from dotenv import load_dotenv
+load_dotenv()
 
 def get_database_path():
     """Get the database file path"""
-    return os.path.join('database', 'sky_predictor.db')
+    db_path = os.getenv('DATABASE_PATH', os.path.join('database', 'sky_predictor.db'))
+    return db_path
 
 
 def ensure_database_directory():

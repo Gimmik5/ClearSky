@@ -311,7 +311,7 @@ ls -l template_base.py
 **Solution:** Check if data exists
 ```bash
 # In Python:
-from data_manager_sqlite import data_manager
+from manager import data_manager
 history = data_manager.get_history()
 print(f"Found {len(history)} captures")
 ```

@@ -17,6 +17,7 @@
 #include "WebServer.h"
 #include "ESP32_Config.h"
 #include "globals.h"
+#include "secrets.h"
 
 #if ENABLE_WATCHDOG
   #include "esp_task_wdt.h"

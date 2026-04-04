@@ -7,7 +7,7 @@ DESIGN:
 - /gallery/<date> → Show all images for that specific date
 - /viewer/<timestamp> → Show individual image
 """
-from database_operations import get_distinct_dates_with_stats, get_captures_for_date
+from operations import get_distinct_dates_with_stats, get_captures_for_date
 from datetime import datetime
 from collections import defaultdict
 from template_base import (

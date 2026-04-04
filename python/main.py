@@ -7,8 +7,9 @@ Usage:
 
 Press Ctrl+C to stop everything
 """
-
+import os
 import threading
+from dotenv import load_dotenv
 from python_config import HOST, PORT
 from server_utils import print_banner, print_startup_info
 from server_init import initialize_server
@@ -16,9 +17,11 @@ from graceful_shutdown import register_signal_handlers
 from esp32_poller import ESP32Poller
 from web_server import create_flask_app, start_web_server
 
+# Load credentials and local overrides from .env
+load_dotenv()
 
 # ── ESP32 Configuration ────────────────────────────────────────────────────────
-ESP32_IP              = "REDACTED"  # Update if ESP32 IP changes
+ESP32_IP              = os.getenv("ESP32_IP")  # Update if ESP32 IP changes
 ESP32_PORT            = 80
 POLL_INTERVAL_SECONDS = 300
 REQUEST_TIMEOUT       = 25

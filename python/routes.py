@@ -3,7 +3,7 @@ Flask Routes Module - V1.1 PULL Mode with Daily View
 
 All endpoints including gallery, daily view, file manager, and viewer
 """
-from data_manager_sqlite import data_manager
+from manager import data_manager
 from flask import request, render_template_string, jsonify, send_file
 from datetime import datetime
 import os
@@ -310,7 +310,7 @@ def register_routes(app):
         """
         try:
             # Try to get image_path from database
-            from data_manager_sqlite import data_manager
+            from manager import data_manager
             
             all_captures = data_manager.get_history(limit=None)
             for capture in all_captures:

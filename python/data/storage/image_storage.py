@@ -6,7 +6,7 @@ Handles saving and loading of captured images
 import os
 import cv2
 from datetime import datetime
-from python_config import (
+from config.settings import (
     SAVE_IMAGES, IMAGE_DIR, IMAGE_NAME_FORMAT, IMAGE_FORMAT,
     ENABLE_IMAGE_COMPRESSION, COMPRESSION_QUALITY
 )

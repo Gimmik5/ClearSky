@@ -3,7 +3,7 @@ Server Initialization Module
 Handles database setup and data migration checks
 """
 
-from database_schema import create_database
+from schema import create_database
 
 
 def initialize_database():

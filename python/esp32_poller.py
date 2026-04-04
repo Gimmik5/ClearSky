@@ -24,7 +24,7 @@ import numpy as np
 import cv2
 from datetime import datetime
 from analysis_core import analyze_image, get_analysis_summary
-from data_manager_sqlite import data_manager
+from manager import data_manager
 from image_storage import save_image
 
 
